@@ -1,17 +1,15 @@
+from collections import UserList
 import fuzzywuzzy.fuzz as fwf
 import fuzzywuzzy.process as fwp
 import pandas as pd
 import re
 
-REQUIRED_HEADERS_S = ['Feature', 'Value', 'Unit'] #, 'SampleId']
-DEFAULT_HEADER_MAP_S = {s: s for s in REQUIRED_HEADERS_S}
-REQUIRED_HEADERS_W = []
-DEFAULT_HEADER_MAP_W = {s: s for s in REQUIRED_HEADERS_W}
-
 DEFAULT_STR2REPLACE = {'Ä': 'a', 'ä': 'a', 'Ë': 'e', 'ë': 'e',
                        'Ö': 'o', 'ö': 'o', 'ï': 'i', 'Ï': 'i',
                        'μ': 'u', 'µ': 'u', '%': 'percentage'}
 DEFAULT_FILTERSTR = ['gefiltreerd', 'na filtratie', 'filtered', 'filtration', ' gef', 'filtratie']                           
+
+DEFAULT_MINSCORES = {1: 100, 3: 100, 4: 90, 5: 85, 6: 80, 8: 75}
 
 DEFAULT_STR2REMOVE = ['icpms', 'icpaes', 'gf aas', 'icp', 'koude damp aas', 'koude damp',  # whitespace, string
                       'berekend', 'opdrachtgever', 'gehalte', 'kretl',
@@ -20,8 +18,28 @@ DEFAULT_STR2REMOVE = ['icpms', 'icpaes', 'gf aas', 'icp', 'koude damp aas', 'kou
                       'na destructie', 'destructie', 'na aanzuren', 'aanzuren',
                       'bij',  # whitespace, string, whitespace
                      ]
+DEFAULT_UNITS_REGEX_PATTERN = r"^\s*([a-zA-Z]*)\s*([a-zA-Z0-9]*)?\s*[/.,]\s*([a-zA-Z])\s*([a-zA-Z0-9]*)?\s*$"
 
-VALID_METHODS = ['exact', 'ascii', 'fuzzy', 'pubchem']
+VALID_METHODS = ['exact', 'ascii', 'regex', 'fuzzy', 'pubchem']
+
+class StringList(UserList):
+    def replace_strings(self, r_dict):
+        if not isinstance(r_dict, dict):
+            raise TypeError("Argument 'r_dict' must be of type dict")
+        try:
+            for key, value in r_dict.items():
+                self.data = [s.replace(key, value) for s in self.data]
+        except:
+            pass
+
+    def strip_parentheses(self):
+        self.data = [re.sub('\(.*\)', '', s) for s in self.data]
+
+    def tidy_strings(self):
+        self.data = [s.lower() for s in self.data]
+        self.data = [s.encode('ascii', 'ignore').decode('ascii') for s in self.data]
+        self.data = [re.sub('[^0-9a-zA-Z\s]', '', s) for s in self.data]
+
 
 class Mapper(object):
     """
@@ -34,13 +52,14 @@ class Mapper(object):
     """
 
     def __init__(self,
-                 map=DEFAULT_HEADER_MAP_S,
-                 match_method=VALID_METHODS,
-                 minscores={1: 100, 3: 100, 4: 90, 5: 85, 6: 80, 8: 75},
-                 replace_strings=DEFAULT_STR2REPLACE,
-                 remove_strings=DEFAULT_STR2REMOVE,
+                 map=None,
+                 match_method=None,
+                 minscores=None,
+                 regex_pattern=DEFAULT_UNITS_REGEX_PATTERN, # str, immutable
+                 replace_strings=None,
+                 remove_strings=None,
                  strip_parentheses=False,
-                 trim_duplicate_suffixes=True,
+                #  trim_duplicate_suffixes=None,
                 ):
         """
         Parameters
@@ -49,17 +68,18 @@ class Mapper(object):
                 If True, the suffixes added to column headers by the pandas functions
                 read_csv and read_excel will be trimmed from the elements in strings.
         """
-        self.df = {}
+        self.df = pd.DataFrame()
         self.map = map
-        self.match_method = self._check_method(match_method)
-        self.minscores = minscores
+        self.match_method = match_method or VALID_METHODS
+        self.minscores = minscores or DEFAULT_MINSCORES
         self.strip_parentheses = strip_parentheses
-        self.replace_strings = replace_strings
-        self.remove_strings = remove_strings
-        self.trim_duplicate_suffixes = trim_duplicate_suffixes
+        self.regex_pattern = regex_pattern
+        self.replace_strings = replace_strings or DEFAULT_STR2REPLACE
+        self.remove_strings = remove_strings or DEFAULT_STR2REMOVE
+        # self.trim_duplicate_suffixes = trim_duplicate_suffixes or True
 
     @staticmethod
-    def _check_method(methods):
+    def _check_methods(methods):
         """
         """
 
@@ -83,112 +103,72 @@ class Mapper(object):
     def _match_ascii(self, strings, map):
         self.df['ASCII'] = [map.get(s) for s in strings]
 
+    def _match_regex(self, strings, map):
+        regex_match = lambda s: re.match(self.regex_pattern, s)
+        matches = [regex_match(s) for s in strings]
+        self.df['Regex'] = [m.group(0) if m else None for m in matches]
+
     def _match_fuzzy(self, strings, map):
-        score = lambda s: fwp.extractOne(s, 
-                                         list(map.keys()),
-                                         scorer=fwf.token_sort_ratio,
-                                         score_cutoff=80,
-                                        )
-        scores = [score(s) for s in strings]
-        self.df['Fuzzy'] = [map.get(s[0]) if s is not None else None for s in scores]
+        fuzzy_score = lambda s: fwp.extractOne(s, 
+                                               list(map.keys()),
+                                               scorer=fwf.token_sort_ratio,
+                                               score_cutoff=80,
+                                              )
+        scores = [fuzzy_score(s) for s in strings]
+        self.df['Fuzzy'] = [map.get(s[0]) if s else None for s in scores]
 
-    @staticmethod
-    def _replace_strings(strings, r_dict):
-        """
-        Function to replace strings in the elements of an iterable.
 
-        Function proceeds in three steps to keep the code readable
-        """
-        if not isinstance(r_dict, dict):
-            raise TypeError("Argument 'r_dict' must be of type dict")
-        try:
-            rv = list(strings)
-            for key, value in r_dict.items():
-                rv = [s.replace(key, value) for s in rv]
-        except:
-            pass
-
-        return rv
-
-    @staticmethod
-    def _strip_parentheses(strings):
-        return [re.sub('\(.*\)', '', s) for s in strings]
-
-    def _tidy_strings(self, strings):
-        rv = self._replace_strings(strings, self.replace_strings)
-        rv = self._replace_strings(rv, {k: '' for k in self.remove_strings})
-        rv = [s.lower() for s in rv]
-        rv = [s.encode('ascii', 'ignore').decode('ascii') for s in rv]
-        rv = [re.sub('[^0-9a-zA-Z\s]', '', s) for s in rv]
-
-        return rv
-
-    @staticmethod
-    def _trim_duplicate_suffixes(strings):
-        """
-        Function to remove the suffixes added by the pandas reader
-        functions like read_csv and read_excel when duplicate columns
-        are encountered.
-
-        Function proceeds in three steps to keep the code readable
-        """
-        # First use list comprehension with a regular expression search
-        # to find trailing (hence the $ sign) integers (the \d+ part)
-        # preceded by a dot (the \.) in strings (an iterable). Note
-        # that re.search returns a match object, or None if the 
-        # expression was not found
-        res = [re.search('\.\d+$', s) for s in strings]
-        
-        # Use the group function of the match objects in res to get 
-        # the trailing string (for example '.1'). Store an empty string
-        # for the elements in strings for which the expression was
-        # not found
-        matches = [r.group() if r is not None else '' for r in res]
-
-        # Return the strings with the trailing parts removed by calling
-        # the removesuffix function (requires Python 3.9 or higher)
-        return [s.removesuffix(m) for s, m in zip(strings, matches)]
-
-    def map_strings(self,
-                    strings,
-                    ):
+    def match(self,
+              s_dict,
+              match_key,
+              writer,
+             ):
         """
         
         Parameters
         ----------
         """
 
-        if isinstance(strings, str):
-            strings = [strings]
-        
         try:
-            # Use list to create a copy of strings if it is of type list,
-            # or cast to list type if strings is another iterable type
-            strings = list(strings)
+            strings = StringList([v[match_key] for v in s_dict.values()])
         except TypeError:
-            raise TypeError("Argument 'strings' is not an iterable")
+            raise TypeError("Argument 's_dict' is not of type dict")
 
-        self.df = pd.DataFrame({'Headers': strings})
+        self.df = pd.DataFrame({'Header': s_dict.keys(),
+                                'Match_string': strings})
 
-        if self.trim_duplicate_suffixes:
-            strings = self._trim_duplicate_suffixes(strings)
+        strings.replace_strings(self.replace_strings)
+        strings.replace_strings({k: '' for k in self.remove_strings})
+        self.df['Match_string_modified'] = strings
 
-        # Check if any other match methods besides 'exact' were passed
-        if len([m for m in self.match_method if m != 'exact']): 
-            strings_t = self._tidy_strings(strings)
-            self.df['Headers_tidied'] = strings_t
+        # Check if any other match methods besides 'exact' or 'regex' were passed
+        if any([m not in ['exact', 'regex'] for m in self.match_method]): 
+            strings_t = StringList(strings)
+            strings_t.tidy_strings()
 
-            keys_t = self._tidy_strings(self.map)
+            keys_t = StringList(self.map.keys())
+            keys_t.replace_strings(self.replace_strings)
+            keys_t.replace_strings({k: '' for k in self.remove_strings})
+            keys_t.tidy_strings()
             map_t = {k1: self.map.get(k0) for k0, k1 in zip(self.map, keys_t)}
+
+            self.df['Match_string__tidied'] = strings_t
 
         for m in self.match_method:
             try:
                 match_method = getattr(self, f'_match_{m}')
-                if (m == 'exact'):
+                if (m in ['exact', 'regex']):
                     match_method(strings, self.map)
                 else:
                     match_method(strings_t, map_t)
-
-                print(self.df)
             except AttributeError:
                 pass
+
+        if writer:
+            self.df.to_excel(writer, sheet_name=match_key.capitalize())
+
+        rv = {}
+        for key, value in self.df.set_index('Header').to_dict('index').items():
+            rv[key] = {k: v for k, v in value.items()}
+
+        return rv

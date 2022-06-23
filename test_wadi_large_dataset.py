@@ -3,7 +3,7 @@ os.chdir('D:\\Users\\postvi\\Documents\\github\\wadi')
 print(os.getcwd())
 
 import wadi as wd
-from wadi.io import DEFAULT_COLUMN_MAP_S
+#from wadi.io import DEFAULT_COLUMN_MAP_S
 
 wi = wd.Importer()
 

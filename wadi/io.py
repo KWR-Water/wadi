@@ -6,9 +6,16 @@ import copy
 import inspect
 import numpy as np
 import pandas as pd
+import re
 import warnings
 
+REQUIRED_COLUMNS_S = ['Feature', 'Value', 'Unit'] #, 'SampleId']
+DEFAULT_COLUMN_MAP_S = {s: s for s in REQUIRED_COLUMNS_S}
+#REQUIRED_HEADERS_W = []
+
 VALID_FORMATS = ['stacked', 'wide', 'gef']
+VALID_DATATYPES = ['header', 'feature']
+DEFAULT_DATATYPE = VALID_DATATYPES[1]
 
 # Copied from https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html
 DEFAULT_NA_VALUES = ['', 
@@ -37,16 +44,21 @@ class Importer(object):
     """
 
     def __init__(self,
-                 format='stacked',
-                 header_map=None,           
+                 format='stacked', # str, immutable
+                 header_map=None,   
+                 unit_map=None,        
                  ):
         
         self.df = None
         self.header_map = header_map
+        self.unit_map = unit_map
+
         self.s_dict = {}
 
         # Check if user provided a valid format specifier and header_map
-        self.format = self._check_format(format.lower())    
+        self.format = self._check_arg(format.lower(), VALID_FORMATS)    
+        if (format in ['gef']):
+            raise NotImplementedError(f'Format option {format} not implemented yet')
         self.header_map = self._check_header_map(header_map)
 
     def _check_df_requirements(self):
@@ -56,7 +68,7 @@ class Importer(object):
         self.df.rename(columns={v: k for k, v in self.header_map.items()}, inplace=True)
 
         if (self.format == 'stacked'):
-            missing_headers = [s for s in REQUIRED_HEADERS_S if s.lower() not in self.df.columns.str.lower()]
+            missing_headers = [s for s in REQUIRED_COLUMNS_S if s.lower() not in self.df.columns.str.lower()]
             if len(missing_headers):
                 raise ValueError(f'Required header(s) {missing_headers} missing from DataFrame')
         elif (self.format == 'wide'):
@@ -65,19 +77,14 @@ class Importer(object):
             raise ValueError(f'Format specifier {self.format} not recognized')
 
     @staticmethod
-    def _check_format(format):
+    def _check_arg(arg, valid_args):
         """
         """
         try:
-            idx = [s.find(format) for s in VALID_FORMATS].index(0)
-            format = VALID_FORMATS[idx]
+            idx = [s.find(arg) for s in valid_args].index(0)
+            return valid_args[idx]
         except ValueError:
-            raise ValueError(f'invalid format argument: {format}, must be in {VALID_FORMATS}')
-
-        if (format in ['gef']):
-            raise NotImplementedError(f'Format option {format} not implemented yet')
-
-        return format
+            raise ValueError(f'invalid datatype argument: {arg}, must be in {valid_args}')
 
     def _check_header_map(self, header_map):
         
@@ -102,6 +109,30 @@ class Importer(object):
         #         header_map[key] = value
 
         return header_map
+
+    def _create_s_dict(self, units, datatypes):
+        self.s_dict = {} # Reset to be sure
+        if (self.format == 'stacked'):
+            ufus = (self.df['Feature'] + self.df['Unit']).dropna().unique()
+            for fu in ufus:
+                idx = (self.df['Feature'] + self.df['Unit'] == fu)
+                key = self.df['Feature'].loc[idx].iloc[0]
+                value = {'header': key,
+                         'unit': self.df['Unit'].loc[idx].iloc[0], 
+                         'values': self.df['Value'].loc[idx],
+                         'type': 'feature'}
+                self.s_dict[key] = value
+        elif (self.format == 'wide'):
+            for i, key in enumerate(self.df.columns):
+                col_name = key
+                duplicate_nr = re.search('\.\d+$', col_name)
+                if duplicate_nr:
+                    col_name = col_name.removesuffix(duplicate_nr.group())
+                value = {'header': col_name,
+                         'unit': units[i], 
+                         'values': self.df[key],
+                         'type': datatypes[i]}
+                self.s_dict[key] = value
 
     def read_data(self,
                   file_path,
@@ -129,31 +160,42 @@ class Importer(object):
             if ((self.format == 'stacked') & ('units_row' in pd_kwargs)):
                 pd_kwargs.pop('units_row')
                 warnings.warn("Argument 'units_row' can not be used in combination with wide format and will be ignored.")
+            if ((self.format == 'stacked') & ('datatype' in pd_kwargs)):
+                pd_kwargs.pop('datatype')
+                warnings.warn("Argument 'datatype' is ignored when format is 'stacked'.")
         
-        self.df, self.units = self._read_file(file_path,
-                                              pd_reader,
-                                              panes)
+        self.df, units, datatypes = self._read_file(file_path,
+                                                    pd_reader,
+                                                    panes)
 
         #self._check_df_requirements()
+        self._create_s_dict(units, datatypes)
+    
+    @staticmethod
+    def _s_dict2df(s_dict):
+        data = {k0: [v0.get(k1) for k1 in v0 if k1 != 'values'] for k0, v0 in s_dict.items()}
+        return pd.DataFrame.from_dict(data, orient='index')
 
-        self.s_dict = {} # Reset to be sure
-        if (self.format == 'stacked'):
-            ufus = (self.df['Feature'] + self.df['Unit']).dropna().unique()
-            for fu in ufus:
-                idx = (self.df['Feature'] + self.df['Unit'] == fu)
-                key = self.df['Feature'].loc[idx].iloc[0]
-                value = {'unit': self.df['Unit'].loc[idx].iloc[0], 
-                         'values': self.df['Value'].loc[idx]}
-                self.s_dict[key] = value
-        elif (self.format == 'wide'):
-            for i, key in enumerate(self.df.columns):
-                value = {'unit': self.units[i], 
-                         'values': self.df[key]}
-                self.s_dict[key] = value
+    def map_data(self,
+                 save_summary=True,
+                 xl_fname='mapping_summary.xlsx'
+                ):
+        
+        writer = None
+        if save_summary:
+            writer = pd.ExcelWriter(xl_fname)
+        
+        if self.header_map:
+            dict_h = self.header_map.match(self.s_dict, 'header', writer)
 
-        if (self.header_map is not None):
-            self.header_map.map_strings(self.s_dict.keys())
-      
+        if self.unit_map:
+            dict_u = self.unit_map.match(self.s_dict, 'unit', writer)
+
+        if writer:
+            writer.save()
+
+        print(self.s_dict)
+
     def _read_file(self,
                   file_path,
                   pd_reader_name,   
@@ -167,14 +209,22 @@ class Importer(object):
         # Start with an empty DataFrame
         df = pd.DataFrame()
         units = []
+        datatypes = []
         # Loop over the sets of kwargs
         for pd_kwargs in panes:
             # Drop any kwarg passed to read_file that is not a valid
             # keyword argument for the reader function in pandas
             units_row = -1
+            datatype = DEFAULT_DATATYPE
+            column_map = {}
             for kwarg in pd_kwargs.copy(): # copy() is needed to avoid RuntimeError
                 if (kwarg == 'units_row'):
                     units_row = pd_kwargs[kwarg]
+                if (kwarg == 'datatype'):
+                    datatype = self._check_arg(pd_kwargs[kwarg].lower(), 
+                                               VALID_DATATYPES)
+                if (kwarg == 'column_map'):
+                    column_map = pd_kwargs[kwarg]
                 if (kwarg == 'index_col'):
                     raise ValueError("Argument 'index_col' not allowed in WADI")
                 if kwarg not in valid_kwargs:
@@ -185,14 +235,17 @@ class Importer(object):
             print('Reading...')
             df_r = pd_reader(file_path, **pd_kwargs)
             print('Done reading...')
+            df_r.rename(columns=column_map, inplace=True)
             df = pd.concat([df, df_r], axis=1)
 
             if units_row > -1:
                 units += self._read_single_row_as_list(file_path, pd_reader, pd_kwargs, units_row)
             else:
                 units += ([''] * df_r.shape[1])
+            
+            datatypes += ([datatype] * df_r.shape[1])
 
-        return df, units
+        return df, units, datatypes
 
     def _read_single_row_as_list(self, file_path, pd_reader, pd_kwargs, units_row):
         units_kwargs = {}
