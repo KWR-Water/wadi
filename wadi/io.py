@@ -7,6 +7,8 @@ import inspect
 import numpy as np
 import pandas as pd
 import re
+from wadi.harmonize import Harmonizer
+from wadi.utils import check_arg
 import warnings
 
 REQUIRED_COLUMNS_S = ['Feature', 'Value', 'Unit'] #, 'SampleId']
@@ -46,17 +48,23 @@ class Importer(object):
     def __init__(self,
                  format='stacked', # str, immutable
                  header_map=None,   
-                 unit_map=None,        
+                 unit_map=None, 
+                 harmonizer=None,       
                  ):
         
         self.df = None
         self.header_map = header_map
         self.unit_map = unit_map
+        if (harmonizer):
+            self.harmonizer = harmonizer
+        else:
+            self.harmonizer = Harmonizer()
 
         self.s_dict = {}
 
         # Check if user provided a valid format specifier and header_map
-        self.format = self._check_arg(format.lower(), VALID_FORMATS)    
+        self.format = check_arg(format, VALID_FORMATS) 
+        print(self.format)   
         if (format in ['gef']):
             raise NotImplementedError(f'Format option {format} not implemented yet')
         self.header_map = self._check_header_map(header_map)
@@ -75,16 +83,6 @@ class Importer(object):
             pass
         else:
             raise ValueError(f'Format specifier {self.format} not recognized')
-
-    @staticmethod
-    def _check_arg(arg, valid_args):
-        """
-        """
-        try:
-            idx = [s.find(arg) for s in valid_args].index(0)
-            return valid_args[idx]
-        except ValueError:
-            raise ValueError(f'invalid datatype argument: {arg}, must be in {valid_args}')
 
     def _check_header_map(self, header_map):
         
@@ -134,6 +132,32 @@ class Importer(object):
                          'type': datatypes[i]}
                 self.s_dict[key] = value
 
+    def harmonize(self,
+                 ):
+        self.harmonizer.harmonize(self.s_dict)
+
+    def map_data(self,
+                 save_summary=True,
+                 xl_fname='mapping_summary.xlsx'
+                ):
+        
+        writer = None
+        if save_summary:
+            writer = pd.ExcelWriter(xl_fname)
+        
+        if self.header_map:
+            h_dict= self.header_map.match(self.s_dict, 'header', writer)
+            for key in self.s_dict.copy():
+                self.s_dict[key]['header'] = h_dict[key]
+
+        if self.unit_map:
+            u_dict = self.unit_map.match(self.s_dict, 'unit', writer)
+            for key in self.s_dict.copy():
+                self.s_dict[key]['unit'] = u_dict[key]
+
+        if writer:
+            writer.save()
+
     def read_data(self,
                   file_path,
                   pd_reader='read_excel',
@@ -171,30 +195,10 @@ class Importer(object):
         #self._check_df_requirements()
         self._create_s_dict(units, datatypes)
     
-    @staticmethod
-    def _s_dict2df(s_dict):
-        data = {k0: [v0.get(k1) for k1 in v0 if k1 != 'values'] for k0, v0 in s_dict.items()}
-        return pd.DataFrame.from_dict(data, orient='index')
-
-    def map_data(self,
-                 save_summary=True,
-                 xl_fname='mapping_summary.xlsx'
-                ):
-        
-        writer = None
-        if save_summary:
-            writer = pd.ExcelWriter(xl_fname)
-        
-        if self.header_map:
-            dict_h = self.header_map.match(self.s_dict, 'header', writer)
-
-        if self.unit_map:
-            dict_u = self.unit_map.match(self.s_dict, 'unit', writer)
-
-        if writer:
-            writer.save()
-
-        print(self.s_dict)
+    # @staticmethod
+    # def _s_dict2df(s_dict):
+    #     data = {k0: [v0.get(k1) for k1 in v0 if k1 != 'values'] for k0, v0 in s_dict.items()}
+    #     return pd.DataFrame.from_dict(data, orient='index')
 
     def _read_file(self,
                   file_path,
@@ -221,8 +225,8 @@ class Importer(object):
                 if (kwarg == 'units_row'):
                     units_row = pd_kwargs[kwarg]
                 if (kwarg == 'datatype'):
-                    datatype = self._check_arg(pd_kwargs[kwarg].lower(), 
-                                               VALID_DATATYPES)
+                    datatype = check_arg(pd_kwargs[kwarg], 
+                                         VALID_DATATYPES)
                 if (kwarg == 'column_map'):
                     column_map = pd_kwargs[kwarg]
                 if (kwarg == 'index_col'):
