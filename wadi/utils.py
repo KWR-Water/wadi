@@ -1,5 +1,23 @@
 from collections import UserList
 import re
+import requests
+import time
+
+def query_pubchem(s, requests_per_second=5):
+    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete/compound/{s}/json?limit=3"
+    try:
+        response = requests.get(url, timeout=(2, 5))
+        response.raise_for_status() # Raises exception unless request was successful
+    except Exception as e:
+        print("An error occured during contacting of the PubChem API.")
+        return None
+    else:
+        r = response.json()
+        if (r['total'] > 0):
+            return (r['dictionary_terms']['compound'][0])
+        else:
+            return None
+        time.sleep(1 / requests_per_second) # API does not accept >5 requests per second
 
 def check_arg(arg, valid_args):
     """
@@ -20,31 +38,6 @@ def check_arg_list(arg_list, valid_args):
         arg_list = [arg_list]
 
     return [check_arg(a, valid_args) for a in arg_list]
-
-class RegexMapper(object):
-    def __init__(self, *args, func=None):
-        self.RE = self._dict2RE(*args)
-        self.func = func
-
-    @staticmethod
-    def _dict2RE(*args):
-        rv = r""
-        for i, re_dict in enumerate (args):
-            if not isinstance(re_dict, dict):
-                raise TypeError(f"argument {re_dict} must be of type dict")
-            if (i == 0):
-                rv += r"^\s*"
-            else:
-                rv += r"|^\s*"
-            for key, value in re_dict.items():
-                rv += rf"(?P<{key}>{value[0]}){value[1]}"
-                #rv = r"\s*".join([rv, value[0] + rf"?P<{key}>" + value[1:]])
-            rv += r"\s*$"
-
-        return rv
-
-    def str(self, groupdict):
-        return self.func(groupdict)
 
 class StringList(UserList):
     def replace_strings(self, r_dict):

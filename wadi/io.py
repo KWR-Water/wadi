@@ -4,7 +4,7 @@
 # from wsgiref import headers
 import copy
 import inspect
-import numpy as np
+#import numpy as np
 import pandas as pd
 import re
 from wadi.harmonize import Harmonizer
@@ -47,33 +47,33 @@ class Importer(object):
 
     def __init__(self,
                  format='stacked', # str, immutable
+                 # feature_map=None,   
                  header_map=None,   
-                 unit_map=None, 
-                 harmonizer=None,       
-                 ):
+                 unit_map=None,    
+                ):
         
         self.df = None
+        #self.feature_map = feature_map
         self.header_map = header_map
         self.unit_map = unit_map
-        if (harmonizer):
-            self.harmonizer = harmonizer
-        else:
-            self.harmonizer = Harmonizer()
-
+        self.mappers = {'header': self.header_map,
+                        'unit': self.unit_map }        
+                
         self.s_dict = {}
 
-        # Check if user provided a valid format specifier and header_map
+        # Check if user provided a valid format specifier
         self.format = check_arg(format, VALID_FORMATS) 
-        print(self.format)   
+
         if (format in ['gef']):
             raise NotImplementedError(f'Format option {format} not implemented yet')
-        self.header_map = self._check_header_map(header_map)
 
     def _check_df_requirements(self):
         """
         """
-                    
-        self.df.rename(columns={v: k for k, v in self.header_map.items()}, inplace=True)
+        for mapper in [self.feature_map, self.header_map]:
+            col_dict = {v: k for k, v in mapper.items()}
+            self.df.rename(columns=col_dict, 
+                           inplace=True)
 
         if (self.format == 'stacked'):
             missing_headers = [s for s in REQUIRED_COLUMNS_S if s.lower() not in self.df.columns.str.lower()]
@@ -117,7 +117,7 @@ class Importer(object):
                 key = self.df['Feature'].loc[idx].iloc[0]
                 value = {'header': key,
                          'unit': self.df['Unit'].loc[idx].iloc[0], 
-                         'values': self.df['Value'].loc[idx],
+                         'data': self.df['Value'].loc[idx],
                          'type': 'feature'}
                 self.s_dict[key] = value
         elif (self.format == 'wide'):
@@ -125,38 +125,39 @@ class Importer(object):
                 col_name = key
                 duplicate_nr = re.search('\.\d+$', col_name)
                 if duplicate_nr:
-                    col_name = col_name.removesuffix(duplicate_nr.group())
+                    col_name = col_name.removesuffix(duplicate_nr.group()) # Requires Python 3.9 or later
                 value = {'header': col_name,
                          'unit': units[i], 
-                         'values': self.df[key],
+                         'data': self.df[key],
                          'type': datatypes[i]}
                 self.s_dict[key] = value
 
     def harmonize(self,
+                  **kwargs  
                  ):
-        self.harmonizer.harmonize(self.s_dict)
+        
+        valid_kwargs = inspect.signature(Harmonizer).parameters
+        for kw in kwargs.copy(): # copy() is needed to avoid RuntimeError
+            if kw not in valid_kwargs:
+                print(f"Ignoring invalid keyword argument '{kw}' in call to harmonizer.")
+                kwargs.pop(kw)        
+         
+        h = Harmonizer(**kwargs)
+        h.harmonize(self.s_dict)
+        print(self.df)
 
     def map_data(self,
-                 save_summary=True,
-                 xl_fname='mapping_summary.xlsx'
                 ):
-        
-        writer = None
-        if save_summary:
-            writer = pd.ExcelWriter(xl_fname)
-        
-        if self.header_map:
-            h_dict= self.header_map.match(self.s_dict, 'header', writer)
-            for key in self.s_dict.copy():
-                self.s_dict[key]['header'] = h_dict[key]
 
-        if self.unit_map:
-            u_dict = self.unit_map.match(self.s_dict, 'unit', writer)
-            for key in self.s_dict.copy():
-                self.s_dict[key]['unit'] = u_dict[key]
+        for s, m in self.mappers.items():
+            if m is None:
+                continue
 
-        if writer:
-            writer.save()
+            m.match(self.s_dict.keys(), 
+                           [v[s] for v in self.s_dict.values()])
+            
+            for key, value in m.df.set_index('header').to_dict('index').items():
+                self.s_dict[key][s] = {k: v for k, v in value.items()}
 
     def read_data(self,
                   file_path,
@@ -267,6 +268,18 @@ class Importer(object):
             units_kwargs['usecols'] = pd_kwargs['usecols']
 
         return pd_reader(file_path, **units_kwargs).fillna('').values[-1].tolist()
+
+    def save_summary(self, 
+                     xl_fname='mapping_summary.xlsx'):
+        writer = pd.ExcelWriter(xl_fname)
+
+        for s, m in self.mappers.items():
+            if m is None:
+                continue
+            m.df.to_excel(writer, 
+                          sheet_name=f"{s.capitalize()}s")
+        
+        writer.save()
 
     # def _get_slice(self, slicer):
     #     """

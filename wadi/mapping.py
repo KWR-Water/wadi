@@ -5,7 +5,8 @@ import json
 import numpy as np
 import pandas as pd
 import re
-from wadi.utils import RegexMapper, StringList, check_arg_list
+from wadi.utils import StringList, check_arg_list, query_pubchem
+from wadi.regex import UnitRegexMapper
 
 DEFAULT_STR2REPLACE = {'Ä': 'a', 'ä': 'a', 'Ë': 'e', 'ë': 'e',
                        'Ö': 'o', 'ö': 'o', 'ï': 'i', 'Ï': 'i',
@@ -21,43 +22,8 @@ DEFAULT_STR2REMOVE = ['icpms', 'icpaes', 'gf aas', 'icp', 'koude damp aas', 'kou
                       'na destructie', 'destructie', 'na aanzuren', 'aanzuren',
                       'bij',  # whitespace, string, whitespace
                      ]
-# DEFAULT_UNITS_REGEX_PATTERN = r"^\s*([a-zA-Z]*)\s*([a-zA-Z0-9]*)?\s*[/.,]\s*([a-zA-Z])\s*([a-zA-Z0-9]*)?\s*$"
 
 VALID_METHODS = ['exact', 'ascii', 'regex', 'fuzzy', 'pubchem']
-
-DEFAULT_RE_DICT0 = {'num': ["[a-zA-Z]*", "\s*"],
-                    'gfw0': ["[a-zA-Z0-9]*", "?\s*"],
-                    'div': ["[/.,]", "\s*"],
-                    'den0': ["[0-9]*", "?"],
-                    'den1': ["[a-zA-Z]*", "\s*"],
-                    'gfw1': ["[a-zA-Z0-9]*", "?"],
-                   }
-DEFAULT_RE_DICT1 = {'txt': ["[a-zA-Z]*", ""]}
-
-def dict2str(groupdict):
-    n = groupdict['num']
-    d0 = groupdict['den0']
-    d1 = groupdict['den1']
-    rv = f"" 
-    if not any(x is None for x in [n, d0, d1]):
-
-        if len(n):
-            rv += f"{n} / "
-        else:
-            rv += f"1 / "
-        if len(d0):
-            rv += f"({d0}"
-        else:
-            rv += f"(1"
-        if len(d1):
-            rv += f"{d1})"
-        else:
-            rv += f")"
-    return rv
-
-DEFAULT_UNITS_REGEX_MAP = RegexMapper(DEFAULT_RE_DICT0, 
-                                      DEFAULT_RE_DICT1, 
-                                      func=dict2str)
 
 class MapperDict(UserDict):
     @classmethod
@@ -68,6 +34,36 @@ class MapperDict(UserDict):
     def to_file(self, fname):
         with open(fname, 'w') as fp:
             json.dump(self.data, fp, indent=2)
+    
+    def translate(self,
+                  src_lang='NL', 
+                  dst_lang='EN',
+                  max_attempts=10,
+                 ):
+        try:
+            from googletrans import LANGUAGES, Translator
+        except ImportError:
+            raise ImportError("Package 'googletrans' not installed")
+
+        t = Translator()
+
+        if not all([l.lower() in LANGUAGES for l in [src_lang, dst_lang]]):
+            raise ValueError("Invalid language(s) specified")    
+
+        keys_src = list(self.data.keys())
+        for i in range(max_attempts):
+            try:
+                keys_dst = t.translate(keys_src, 
+                                       src=src_lang, 
+                                       dest=dst_lang
+                                      )
+                #return {k: v for k, v in zip(keys_dst, self.data.values())}
+            except:
+                print(f"Failed attempt ({i}) to connect to Google Translate API. Retrying...")
+
+        if (i == (max_attempts - 1)):
+            raise ValueError("Translation failed. Try again later...")
+
 class Mapper(object):
     """
     Class for importing hydrochemical data in a variety of formats
@@ -82,7 +78,7 @@ class Mapper(object):
                  m_dict=None,
                  match_method=None,
                  minscores=None,
-                 regex_map=DEFAULT_UNITS_REGEX_MAP,
+                 regex_map=UnitRegexMapper(),
                  replace_strings=None,
                  remove_strings=None,
                  strip_parentheses=False,
@@ -104,6 +100,8 @@ class Mapper(object):
         self.remove_strings = remove_strings or DEFAULT_STR2REMOVE
         self.match_method = check_arg_list(self.match_method, VALID_METHODS)
 
+        self.df = {}
+
     def _match_exact(self, strings, m_dict):
         return [m_dict.get(s) for s in strings]
 
@@ -121,10 +119,12 @@ class Mapper(object):
         scores = [fuzzy_score(s) for s in strings]
         return [m_dict.get(s[0]) if s else None for s in scores]
 
+    def _match_pubchem(self, strings):
+        return [query_pubchem(s) for s in strings]
+
     def match(self,
-              s_dict,
-              match_key,
-              writer,
+              columns,
+              strings,
              ):
         """
         
@@ -133,16 +133,16 @@ class Mapper(object):
         """
 
         try:
-            strings = StringList([v[match_key] for v in s_dict.values()])
-        except TypeError:
-            raise TypeError("Argument 's_dict' is not of type dict")
+            strings = StringList(strings)
+        except:
+            TypeError("Argument 'strings' is not of a valid type")
 
-        df = pd.DataFrame({'Header': s_dict.keys(),
-                           'original': strings})
+        self.df = pd.DataFrame({'header': columns,
+                                'original': strings})
 
         strings.replace_strings(self.replace_strings)
         strings.replace_strings({k: '' for k in self.remove_strings})
-        df['modified'] = strings
+        self.df['modified'] = strings
 
         # Check if 'ascii' or 'fuzzy' were passed
         if any([m in ['ascii', 'fuzzy'] for m in self.match_method]): 
@@ -155,23 +155,23 @@ class Mapper(object):
             keys_t.tidy_strings()
             m_dict_t = {k1: self.m_dict.get(k0) for k0, k1 in zip(self.m_dict, keys_t)}
 
-            df['tidied'] = strings_t
+            self.df['tidied'] = strings_t
 
-        df['match'] = np.nan # Stores the item that was matched
-        df['alias'] = np.nan # Stores the alias of the matched item
-        df['method'] = np.nan # Stores the method with which a match was found
+        self.df['match'] = np.nan # Stores the item that was matched
+        self.df['alias'] = np.nan # Stores the alias of the matched item
+        self.df['method'] = np.nan # Stores the method with which a match was found
         
-        # Copy only relevant columns from main df to dfsub. List comprehension
-        # is necessary to make a selection because 'tidied' may not occur in the
-        # main df if the method is not 'ascii' or 'fuzzy'
-        cols = [c for c in ['modified', 'tidied', 'match'] if c in df.columns]
+        # Copy only relevant columns from self.df to dfsub. List comprehension
+        # is necessary to make a selection because 'tidied' may not occur in 
+        # self.df if the method is not 'ascii' or 'fuzzy'
+        cols = [c for c in ['modified', 'tidied', 'match'] if c in self.df.columns]
         for m in self.match_method:
             try:
                 # Select only the rows for which no match was found yet
-                idx = df['alias'].isnull()
-                dfsub = df.loc[idx, cols].copy()
+                idx = self.df['alias'].isnull()
+                dfsub = self.df.loc[idx, cols].copy()
                 # The term to be matched depends on the method
-                if m in ['exact', 'regex']:
+                if m in ['exact', 'regex', 'pubchem']:
                     dfsub['match'] = dfsub['modified']
                 else:
                     dfsub['match'] = dfsub['tidied']
@@ -184,6 +184,8 @@ class Mapper(object):
                     res = self._match_regex(dfsub['match'])
                 elif (m == 'fuzzy'):
                     res = self._match_fuzzy(dfsub['match'], m_dict_t)
+                elif (m == 'pubchem'):
+                    res = self._match_pubchem(dfsub['match'])
                 else:
                     raise NotImplementedError
                 
@@ -193,15 +195,6 @@ class Mapper(object):
                 idx = ~dfsub['alias'].isnull()
                 dfsub.loc[idx, 'method'] = m
                 # Update the main df with the values in dfsub
-                df.update(dfsub)
+                self.df.update(dfsub)
             except NotImplementedError:
                 raise NotImplementedError(f"Match method '{m}' not implemented")
-
-        if writer:
-            df.to_excel(writer, sheet_name=match_key.capitalize())
-
-        rv = {}
-        for key, value in df.set_index('Header').to_dict('index').items():
-            rv[key] = {k: v for k, v in value.items()}
-
-        return rv
