@@ -1,22 +1,20 @@
-# from argparse import ArgumentError
-# from multiprocessing.sharedctypes import RawValue, Value
-# from unittest.mock import DEFAULT
-# from wsgiref import headers
 import copy
 import inspect
-#import numpy as np
+import os
 import pandas as pd
 import re
+from wadi.base import WadiBaseClass
 from wadi.harmonize import Harmonizer
+from wadi.infotable import InfoTable
+from wadi.mapping import Mapper, MapperDict
 from wadi.utils import check_arg
-import warnings
 
-REQUIRED_COLUMNS_S = ['Feature', 'Value', 'Unit'] #, 'SampleId']
-DEFAULT_COLUMN_MAP_S = {s: s for s in REQUIRED_COLUMNS_S}
+REQUIRED_COLUMNS_S = ['SampleId', 'Features', 'Values', 'Units']
+DEFAULT_C_DICT = {s: s for s in REQUIRED_COLUMNS_S}
 #REQUIRED_HEADERS_W = []
 
 VALID_FORMATS = ['stacked', 'wide', 'gef']
-VALID_DATATYPES = ['header', 'feature']
+VALID_DATATYPES = ['sampleinfo', 'feature']
 DEFAULT_DATATYPE = VALID_DATATYPES[1]
 
 # Copied from https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html
@@ -35,7 +33,7 @@ DEFAULT_NA_VALUES = ['',
                     'nan', 
                     '-nan']
 
-class Importer(object):
+class Importer(WadiBaseClass):
     """
     Class for importing hydrochemical data in a variety of formats
 
@@ -47,19 +45,11 @@ class Importer(object):
 
     def __init__(self,
                  format='stacked', # str, immutable
-                 # feature_map=None,   
-                 header_map=None,   
-                 unit_map=None,    
+                 c_dict=None,
                 ):
-        
-        self.df = None
-        #self.feature_map = feature_map
-        self.header_map = header_map
-        self.unit_map = unit_map
-        self.mappers = {'header': self.header_map,
-                        'unit': self.unit_map }        
-                
-        self.s_dict = {}
+
+        WadiBaseClass.__init__(self)
+        self._log_fname = ''
 
         # Check if user provided a valid format specifier
         self.format = check_arg(format, VALID_FORMATS) 
@@ -67,70 +57,47 @@ class Importer(object):
         if (format in ['gef']):
             raise NotImplementedError(f'Format option {format} not implemented yet')
 
-    def _check_df_requirements(self):
-        """
-        """
-        for mapper in [self.feature_map, self.header_map]:
-            col_dict = {v: k for k, v in mapper.items()}
-            self.df.rename(columns=col_dict, 
-                           inplace=True)
+        if (format == 'stacked'):
+            self.c_dict = c_dict or DEFAULT_C_DICT
+            self._col_s = self.c_dict['SampleId']
+            self._col_f = self.c_dict['Features']
+            self._col_u = self.c_dict['Units']
+            self._col_v = self.c_dict['Values']
 
-        if (self.format == 'stacked'):
-            missing_headers = [s for s in REQUIRED_COLUMNS_S if s.lower() not in self.df.columns.str.lower()]
-            if len(missing_headers):
-                raise ValueError(f'Required header(s) {missing_headers} missing from DataFrame')
-        elif (self.format == 'wide'):
+        self.df = None
+        self._infotable = InfoTable()
+
+        try:
+            os.remove("mapping_summary.xlsx")
+        except OSError:
             pass
-        else:
-            raise ValueError(f'Format specifier {self.format} not recognized')
 
-    def _check_header_map(self, header_map):
-        
-        # if not isinstance(header_map, dict):
-        #     raise TypeError('header_map must be of type dictionary')
-
-        # for key, value in header_map.items():
-        #     if not isinstance(key, str):
-        #         raise TypeError('header_map key {key} must be of type str')
-        #     if not isinstance(value, str):
-        #         raise TypeError('header_map value {value} must be of type str')
-        
-        # if self.format == 'stacked':
-        #     default_headers = DEFAULT_HEADER_MAP_S
-        # elif self.format == 'wide':
-        #     default_headers = DEFAULT_HEADER_MAP_S
-        # else:
-        #     default_headers = []
-
-        # for key, value in default_headers.items():
-        #     if key not in header_map:
-        #         header_map[key] = value
-
-        return header_map
-
-    def _create_s_dict(self, units, datatypes):
-        self.s_dict = {} # Reset to be sure
+    def _create_infotable(self, units, datatypes):
+        self._infotable = InfoTable() # Reset to be sure
         if (self.format == 'stacked'):
-            ufus = (self.df['Feature'] + self.df['Unit']).dropna().unique()
+            ufus = (self.df[self._col_f] + self.df[self._col_u]).dropna().unique()
             for fu in ufus:
-                idx = (self.df['Feature'] + self.df['Unit'] == fu)
-                key = self.df['Feature'].loc[idx].iloc[0]
-                value = {'header': key,
-                         'unit': self.df['Unit'].loc[idx].iloc[0], 
-                         'data': self.df['Value'].loc[idx],
-                         'type': 'feature'}
-                self.s_dict[key] = value
+                idx = (self.df[self._col_f] + self.df[self._col_u] == fu)
+                key = self.df[self._col_f].loc[idx].iloc[0]
+                i_dict = {'name': key,
+                          'unit': self.df.loc[idx, self._col_u].iloc[0], 
+                          'sampleids': self.df.loc[idx, self._col_s],
+                          'values': self.df.loc[idx, self._col_v],
+                          'datatype': 'feature'}
+                self._infotable[key] = i_dict
         elif (self.format == 'wide'):
             for i, key in enumerate(self.df.columns):
                 col_name = key
                 duplicate_nr = re.search('\.\d+$', col_name)
                 if duplicate_nr:
                     col_name = col_name.removesuffix(duplicate_nr.group()) # Requires Python 3.9 or later
-                value = {'header': col_name,
-                         'unit': units[i], 
-                         'data': self.df[key],
-                         'type': datatypes[i]}
-                self.s_dict[key] = value
+                i_dict = {'name': col_name,
+                          'unit': units[i], 
+                          'values': self.df[key],
+                          'datatype': datatypes[i]}
+                self._infotable[key] = i_dict
+        
+        self._log(self._infotable)
 
     def harmonize(self,
                   **kwargs  
@@ -139,30 +106,66 @@ class Importer(object):
         valid_kwargs = inspect.signature(Harmonizer).parameters
         for kw in kwargs.copy(): # copy() is needed to avoid RuntimeError
             if kw not in valid_kwargs:
-                print(f"Ignoring invalid keyword argument '{kw}' in call to harmonizer.")
+                self._warn(f"Ignoring invalid keyword argument '{kw}' in call to harmonizer.")
                 kwargs.pop(kw)        
          
         h = Harmonizer(**kwargs)
-        h.harmonize(self.s_dict)
-        print(self.df)
+        if (self.format == 'stacked'):
+            rv = h.harmonize(self._infotable, self.df[self._col_s].unique())
+        elif (self.format == 'wide'):
+            rv = h.harmonize(self._infotable)
+        
+        h.update_log_file(f"{self._log_fname}.log")
+    
+        return rv
+
+    def _map(self,
+             s,
+             **kwargs
+            ):
+
+        valid_kwargs = inspect.signature(Mapper).parameters
+        for kw in kwargs.copy(): # copy() is needed to avoid RuntimeError
+            if kw not in valid_kwargs:
+                self._warn(f"Ignoring invalid keyword argument '{kw}' in call to mapper.")
+                kwargs.pop(kw)        
+         
+        m = Mapper(**kwargs)
+
+        m.match(self._infotable.keys(), 
+                self._infotable.list(s),
+                s,
+               )
+        
+        m.update_log_file(f"{self._log_fname}.log")
+        m.df2excel(f"{s}_mapping_results_{self._log_fname}.xlsx",
+                   f"{s.capitalize()}s")
+                   
+        i_key = f"alias_{s[0]}"
+        a_dict = m.df.set_index('header').dropna()['alias'].to_dict()
+        for key, value in a_dict.items():
+            self._infotable[key][i_key] = value
 
     def map_data(self,
-                ):
+                  **kwargs,
+                 ):
+        self._map('name', **kwargs)
 
-        for s, m in self.mappers.items():
-            if m is None:
-                continue
-
-            m.match(self.s_dict.keys(), 
-                           [v[s] for v in self.s_dict.values()])
-            
-            for key, value in m.df.set_index('header').to_dict('index').items():
-                self.s_dict[key][s] = {k: v for k, v in value.items()}
+    def map_units(self,
+                  **kwargs,
+                 ):
+        if ('match_method' not in kwargs):
+            kwargs['match_method'] = 'regex'
+        self._map('unit', **kwargs)
 
     def read_data(self,
                   file_path,
                   pd_reader='read_excel',
                   **kwargs):
+
+        # Infer log file name from file_path
+        self._log_fname = os.path.splitext(file_path)[0]
+        self._log("WADI log file", timestamp=True)
 
         pd_kwargs = copy.deepcopy(vars()['kwargs']) # deepcopy just to be sure
         if ('na_values' not in pd_kwargs):
@@ -181,20 +184,30 @@ class Importer(object):
             if not isinstance(panes, (list, tuple)):
                 raise ValueError("Argument 'panes' must be a list or a tuple")
 
+        # Loop over the panes
         for pd_kwargs in panes:
+            # Perform some checks for inconsistent kwargs
             if ((self.format == 'stacked') & ('units_row' in pd_kwargs)):
                 pd_kwargs.pop('units_row')
-                warnings.warn("Argument 'units_row' can not be used in combination with wide format and will be ignored.")
+                self._warn("Argument 'units_row' can not be used in combination with wide format and will be ignored.")
             if ((self.format == 'stacked') & ('datatype' in pd_kwargs)):
                 pd_kwargs.pop('datatype')
-                warnings.warn("Argument 'datatype' is ignored when format is 'stacked'.")
+                self._warn("Argument 'datatype' is ignored when format is 'stacked'.")
         
+        # Call read file to import the data into a single DataFrame
         self.df, units, datatypes = self._read_file(file_path,
                                                     pd_reader,
                                                     panes)
 
         #self._check_df_requirements()
-        self._create_s_dict(units, datatypes)
+
+        # Create the dictionary that stores views to the data read as well as
+        # additional information (units, data type)
+        self._create_infotable(units, datatypes)
+
+        # Write the log string to the log file (note that mode is 'w',
+        # because at this point the log file is created for the first time)
+        self.update_log_file(f"{self._log_fname}.log", 'w')
     
     # @staticmethod
     # def _s_dict2df(s_dict):
@@ -205,49 +218,58 @@ class Importer(object):
                   file_path,
                   pd_reader_name,   
                   panes):
+
+        # Inform user with message on screen that reading has started (may
+        # take a long time for large files)
+        self._msg(f"Reading ...")
         
-        # Get reference to pandas reader function
+        # Get reference to pandas reader function and determine its valid
+        # keyword arguments
         pd_reader = getattr(pd, pd_reader_name)
-        # Determine its valid keyword arguments
         valid_kwargs = inspect.signature(pd_reader).parameters
         
-        # Start with an empty DataFrame
+        # Start with an empty DataFrame and empty lists for units and datatype
         df = pd.DataFrame()
         units = []
         datatypes = []
         # Loop over the sets of kwargs
         for pd_kwargs in panes:
-            # Drop any kwarg passed to read_file that is not a valid
-            # keyword argument for the reader function in pandas
             units_row = -1
             datatype = DEFAULT_DATATYPE
-            column_map = {}
             for kwarg in pd_kwargs.copy(): # copy() is needed to avoid RuntimeError
                 if (kwarg == 'units_row'):
                     units_row = pd_kwargs[kwarg]
                 if (kwarg == 'datatype'):
                     datatype = check_arg(pd_kwargs[kwarg], 
                                          VALID_DATATYPES)
-                if (kwarg == 'column_map'):
-                    column_map = pd_kwargs[kwarg]
                 if (kwarg == 'index_col'):
                     raise ValueError("Argument 'index_col' not allowed in WADI")
+                # Drop any kwarg passed to read_file that is not a valid
+                # keyword argument for the requested Pandas reader function
                 if kwarg not in valid_kwargs:
                     pd_kwargs.pop(kwarg)
             
+            # Create a verbose message for the log file
+            kws = ", ".join(f"{k}={v}" for k,v in pd_kwargs.items())
+            self._log(f" * pandas.{pd_reader_name}('{file_path}', {kws})")
+            
+            # Call the requested Pandas reader function to import the data
+            df_r = pd_reader(file_path, **pd_kwargs)
+                        
             # Use the pd.concat function to join the return values from the 
             # pandas reader function (i.e. the DataFrames read from the file)
-            print('Reading...')
-            df_r = pd_reader(file_path, **pd_kwargs)
-            print('Done reading...')
-            df_r.rename(columns=column_map, inplace=True)
             df = pd.concat([df, df_r], axis=1)
 
+            # Read the units if the user specified a valid row number, else...
             if units_row > -1:
                 units += self._read_single_row_as_list(file_path, pd_reader, pd_kwargs, units_row)
+            # ... create a list of empty strings with the same length as the
+            # number of columns read
             else:
                 units += ([''] * df_r.shape[1])
             
+            # Make sure that the datatype for this pane is copied as many 
+            # times as there are columns in the DataFrame that was read
             datatypes += ([datatype] * df_r.shape[1])
 
         return df, units, datatypes
@@ -261,7 +283,7 @@ class Importer(object):
             units_kwargs['header'] = None 
             units_kwargs['nrows'] = units_row + 1
         else:
-            warnings.warn(f"argument 'units_row' may not work as expected with reader {pd_reader}")
+            self._warn(f"argument 'units_row' may not work as expected with reader {pd_reader}")
         if ('sheet_name' in pd_kwargs):
             units_kwargs['sheet_name'] = pd_kwargs['sheet_name']
         if ('usecols' in pd_kwargs):
@@ -269,17 +291,20 @@ class Importer(object):
 
         return pd_reader(file_path, **units_kwargs).fillna('').values[-1].tolist()
 
-    def save_summary(self, 
-                     xl_fname='mapping_summary.xlsx'):
+    def save_mapping_summary(self, 
+                             xl_fname='mapping_summary.xlsx'):
         writer = pd.ExcelWriter(xl_fname)
 
         for s, m in self.mappers.items():
             if m is None:
                 continue
+            self._log(f"Saving {s} mapping results to {xl_fname}.")
             m.df.to_excel(writer, 
                           sheet_name=f"{s.capitalize()}s")
         
         writer.save()
+
+        self.update_log_file(self._log_fname, 'a')
 
     # def _get_slice(self, slicer):
     #     """

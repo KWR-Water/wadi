@@ -1,11 +1,11 @@
 import re
 
 DEFAULT_RE_DICT0 = {'num': ["[a-zA-Z]*", "\s*"],
-                    'gfw0': ["[a-zA-Z0-9]*", "?\s*"],
+                    'mw0': ["[a-zA-Z0-9]*", "?\s*"],
                     'div': ["[/.,]", "\s*"],
                     'den0': ["[0-9]*", "?"],
                     'den1': ["[a-zA-Z]*", "\s*"],
-                    'gfw1': ["[a-zA-Z0-9]*", "?"],
+                    'mw1': ["[a-zA-Z0-9]*", "?"],
                    }
 DEFAULT_RE_DICT1 = {'txt': ["[a-zA-Z]*", ""]}
 
@@ -14,22 +14,29 @@ def dict2str(groupdict):
     d0 = groupdict['den0']
     d1 = groupdict['den1']
     txt = groupdict['txt']
+    w0 = groupdict['mw0']
+    w1 = groupdict['mw1']
 
     rv = f"" 
 
     if not all(x is None for x in [n, d0, d1]):
         if len(n):
-            rv += f"{n} / "
+            rv += f"{n}"
         else:
-            rv += f"1 / "
+            rv += f"1"
         if len(d0):
-            rv += f"({d0}"
+            rv += f" / ({d0}"
         else:
-            rv += f"(1"
+            rv += f" / (1"
         if len(d1):
             rv += f"{d1})"
         else:
             rv += f")"
+        if len(w0):
+            rv += f"|{w0}"
+        elif len(w1):
+            rv += f"|{w1}"
+
     elif (txt is not None):
         rv += txt
     return rv

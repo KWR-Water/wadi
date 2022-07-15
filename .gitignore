@@ -129,4 +129,12 @@ dmypy.json
 .pyre/
 
 # Example files for testing
-.examples/KIWK KOW Grubbenvorst  WP PP ruw rein 20210608.xlsx
+examples/KIWK KOW Grubbenvorst  WP PP ruw rein 20210608.xlsx
+
+# files that are created on the fly
+docs/source/_build
+*.log
+*.json
+test*.py
+.google-cookie
+.pylint.d

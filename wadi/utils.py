@@ -39,6 +39,20 @@ def check_arg_list(arg_list, valid_args):
 
     return [check_arg(a, valid_args) for a in arg_list]
 
+def check_if_nested_list(n_list, min_elements=2):
+    """
+    """
+    error_msg = f"Each nested element must be a list with >={min_elements} elements."
+    if isinstance(n_list, list):
+        for l in n_list:
+            if isinstance(l, list):
+                if (len(l) < min_elements):
+                    raise ValueError(error_msg)
+            else:
+                raise TypeError(error_msg)
+    else:
+        raise TypeError("Expected a nested list")
+
 class StringList(UserList):
     def replace_strings(self, r_dict):
         if not isinstance(r_dict, dict):

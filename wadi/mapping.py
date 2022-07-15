@@ -3,8 +3,10 @@ import fuzzywuzzy.fuzz as fwf
 import fuzzywuzzy.process as fwp
 import json
 import numpy as np
+import os
 import pandas as pd
 import re
+from wadi.base import WadiBaseClass
 from wadi.utils import StringList, check_arg_list, query_pubchem
 from wadi.regex import UnitRegexMapper
 
@@ -64,9 +66,9 @@ class MapperDict(UserDict):
         if (i == (max_attempts - 1)):
             raise ValueError("Translation failed. Try again later...")
 
-class Mapper(object):
+class Mapper(WadiBaseClass):
     """
-    Class for importing hydrochemical data in a variety of formats
+    Class for mapping hydrochemical data
 
     Examples
     --------
@@ -91,8 +93,10 @@ class Mapper(object):
                 read_csv and read_excel will be trimmed from the elements in strings.
         """
 
+        WadiBaseClass.__init__(self)
+
         self.m_dict = m_dict
-        self.match_method = match_method or VALID_METHODS
+        self.match_method = match_method or ['exact']
         self.minscores = minscores or DEFAULT_MINSCORES
         self.strip_parentheses = strip_parentheses
         self.regex_map = regex_map
@@ -101,6 +105,9 @@ class Mapper(object):
         self.match_method = check_arg_list(self.match_method, VALID_METHODS)
 
         self.df = {}
+
+    def _default_m_dict(self, strings):
+        return {k: k for k in  dict.fromkeys(strings)}
 
     def _match_exact(self, strings, m_dict):
         return [m_dict.get(s) for s in strings]
@@ -125,6 +132,7 @@ class Mapper(object):
     def match(self,
               columns,
               strings,
+              s,
              ):
         """
         
@@ -132,13 +140,18 @@ class Mapper(object):
         ----------
         """
 
+        self._log("Mapping...")
+        
         try:
             strings = StringList(strings)
         except:
             TypeError("Argument 'strings' is not of a valid type")
 
+        if self.m_dict is None:
+            self.m_dict = self._default_m_dict(strings)
+        
         self.df = pd.DataFrame({'header': columns,
-                                'original': strings})
+                                'name': strings})
 
         strings.replace_strings(self.replace_strings)
         strings.replace_strings({k: '' for k in self.remove_strings})
@@ -164,7 +177,7 @@ class Mapper(object):
         # Copy only relevant columns from self.df to dfsub. List comprehension
         # is necessary to make a selection because 'tidied' may not occur in 
         # self.df if the method is not 'ascii' or 'fuzzy'
-        cols = [c for c in ['modified', 'tidied', 'match'] if c in self.df.columns]
+        cols = [c for c in ['name', 'modified', 'tidied', 'match'] if c in self.df.columns]
         for m in self.match_method:
             try:
                 # Select only the rows for which no match was found yet
@@ -196,5 +209,24 @@ class Mapper(object):
                 dfsub.loc[idx, 'method'] = m
                 # Update the main df with the values in dfsub
                 self.df.update(dfsub)
+
+                self._log(f" * Match method {m} found the following matches:")
+                for name, alias in zip(dfsub['name'], dfsub['alias']):
+                    if alias is not None:
+                        self._log(f"   - {name}: {alias}")
+            
             except NotImplementedError:
                 raise NotImplementedError(f"Match method '{m}' not implemented")
+
+    def df2excel(self,
+                 xl_fname,
+                 sheet_name):
+
+        writer = pd.ExcelWriter(xl_fname)
+
+        self.df.to_excel(writer, 
+                         sheet_name=sheet_name,
+                         index=False,
+                        )
+        
+        writer.save()
