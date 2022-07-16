@@ -1,4 +1,5 @@
 from collections import UserList
+import inspect
 import re
 import requests
 import time
@@ -70,3 +71,12 @@ class StringList(UserList):
         self.data = [s.lower() for s in self.data]
         self.data = [s.encode('ascii', 'ignore').decode('ascii') for s in self.data]
         self.data = [re.sub('[^0-9a-zA-Z\s]', '', s) for s in self.data]
+
+def valid_kwargs(f, **kwargs):
+    valid_kwargs = inspect.signature(f).parameters
+    rv = kwargs
+    for kw in rv.copy(): 
+        if kw not in valid_kwargs:
+            rv.pop(kw)
+    
+    return rv

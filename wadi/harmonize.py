@@ -23,7 +23,7 @@ class Harmonizer(WadiBaseClass):
     def __init__(self,
                  target_units='mg/l', # str, immutable
                  override_units=None,
-                 convert_bds='halve', # str, immutable
+                #  convert_bds='halve', # str, immutable
                  lt_symbol='<', # str, immutable
                  drop_columns=None,
                  merge_columns=None,
@@ -44,32 +44,54 @@ class Harmonizer(WadiBaseClass):
         self.ureg = UnitRegistry()
         self.ureg.default_format = "~"
 
-        self._bd_factor = BD_FACTORS[check_arg(convert_bds, BD_FACTORS.keys())]   
-        self._bd_RE = rf"^\s*{lt_symbol}\s*"
+        # self._bd_factor = BD_FACTORS[check_arg(convert_bds, BD_FACTORS.keys())]   
+        self._bd_RE = rf"(^\s*{lt_symbol}\s*)"
 
-    def _convert_bd(self, v):
+    def _convert_values(self, v, uc_factor):
         """
-        Checks for values below the detection limit (bd)
+        Convert cell values using the unit conversion factor. This
+        function is used in harmonize with the Pandas 'apply' function
+        and is needed because (i) values below a detection limit
+        cannot be converted simply by multiplying and (ii) some cell
+        values are imported as strings even though they are numbers
         """
-
+        # If the cell value is not a string, it is (always?) a float
+        # so the function can directly return the cell value times the
+        # unit conversion factor
         if not isinstance(v, str):
+            return v * uc_factor
+
+        # Use the regex split function to split the string. A cell value
+        # like <0.5 will be parsed into the following list ['', '<', '0.5']
+        substrings = re.split(self._bd_RE, v)
+        # Check if there are three substrings
+        if (len(substrings) == 3):
+            # Convert the third substring to a float and apply the uc_factor
+            rv = float(substrings[2]) * uc_factor
+            # Prefix the smaller-than symbol and return as a string
+            return f"{substrings[1]}{rv}"
+        # If the split function returned only one value it can be a number
+        # In that case try to convert the substring to a float and return
+        # it after applying the conversion factor
+        elif (len(substrings) == 1):
+            try:
+                return float(substrings[0]) * uc_factor
+            # If a value error occurs the substring was not a number and
+            # the input value is simply returned
+            except ValueError: 
+                return v
+        else:
+            # If all of the above fails, simply return the input value
             return v
 
-        rv = re.split(self._bd_RE, v)
-        if (len(rv) == 2):
-            return float(rv[1]) * self._bd_factor
-        else:
-            return None
-    
     def _get_mw(self,
                 s,
                ):
         try:
             return mm.Formula(s).mass * self.ureg('g/mol')
         except FormulaError:
-            # self._warn(f"Could not determine molar mass for {s}.")
-            return 1
-         
+            return None
+
     def _str2pint(self,
                   col,
                   s,
@@ -81,6 +103,8 @@ class Harmonizer(WadiBaseClass):
                 mw_formula = col
             mw = self._get_mw(mw_formula)
             self._log(f" * Successfully parsed unit '{s}' with pint for {col}")
+            if (mw is not None): 
+                self._log(f"   - molecular weight: {mw}")
             return self.ureg.Quantity(s_parts[0]), mw
         except (AttributeError, TypeError, UndefinedUnitError, ValueError):
             self._log(f" * Failed to parse unit '{s}' with pint for {col}")
@@ -113,7 +137,7 @@ class Harmonizer(WadiBaseClass):
             values = i_dict['values']
             if ('sampleids' in i_dict): # For stacked data
                 values = values.set_axis(i_dict['sampleids'])
-            values = values.dropna()
+            values = pd.to_numeric(values.dropna(), errors='ignore')
 
             # The column name in the new DataFrame will be the item's alias
             alias_n = i_dict['alias_n']
@@ -137,13 +161,18 @@ class Harmonizer(WadiBaseClass):
                             target_units = self.override_units[key]
                         else:
                             target_units = self.target_units
-                        uc = q.to(target_units, 'chemistry', mw=mw)
+                        if (mw is None): 
+                            uc = q.to(target_units)
+                        else:
+                            uc = q.to(target_units, 'chemistry', mw=mw)
                         uc_factor = uc.magnitude
                         alias_u = uc.units
                     except DimensionalityError:
                         pass
-                values = values.apply(self._convert_bd).multiply(uc_factor)
-            
+                
+                values = values.apply(self._convert_values, 
+                                      uc_factor=uc_factor)
+
             df[key] = values
             
             column_header_dict[key] = alias_n

@@ -1,22 +1,27 @@
 import copy
-import inspect
-import os
 import pandas as pd
+from pathlib import Path
 import re
 from wadi.base import WadiBaseClass
 from wadi.harmonize import Harmonizer
 from wadi.infotable import InfoTable
 from wadi.mapping import Mapper, MapperDict
-from wadi.utils import check_arg
+from wadi.utils import check_arg, valid_kwargs
 
+# Required column headers for 'stacked' format
 REQUIRED_COLUMNS_S = ['SampleId', 'Features', 'Values', 'Units']
 DEFAULT_C_DICT = {s: s for s in REQUIRED_COLUMNS_S}
 #REQUIRED_HEADERS_W = []
 
+# Valid values for the 'format' kwarg
 VALID_FORMATS = ['stacked', 'wide', 'gef']
+# Valid values for the 'datatype' kwarg
 VALID_DATATYPES = ['sampleinfo', 'feature']
+# Select one of the VALID_DATATYPES as the default datatype
 DEFAULT_DATATYPE = VALID_DATATYPES[1]
 
+# Default NaN values, used if user does not specify a value for the na_values
+# kwarg for read_excel or read_csv
 # Copied from https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html
 DEFAULT_NA_VALUES = ['', 
                     '-1.#IND', 
@@ -40,23 +45,43 @@ class Importer(WadiBaseClass):
     Examples
     --------
 
-    TBC::
+    import wadi as wd
+
+    wi = wd.Importer()
+    wi.read_data('chem_data.xlsx')
     """
 
     def __init__(self,
                  format='stacked', # str, immutable
                  c_dict=None,
                 ):
+        """
+        Class initialization method
 
+        Parameters
+        ----------
+        format : str, default 'stacked'.
+            Specifies if the data in the file are in 'stacked' or 'wide' 
+            format. Permissible formats are defined in VALID_FORMATS. 
+            The 'gef' format is not implemented (yet).
+        c_dict : dict, default is DEFAULT_C_DICT
+            Only used when the format is 'stacked'. This dictionary maps
+            column names in the file to the compulsory column names defined
+            in REQUIRED_COLUMNS_S.
+        """
+
+        # Call the ancestors initialization method
         WadiBaseClass.__init__(self)
-        self._log_fname = ''
-
+        
         # Check if user provided a valid format specifier
         self.format = check_arg(format, VALID_FORMATS) 
 
+        # Raise error if the format is not yet implemented
         if (format in ['gef']):
             raise NotImplementedError(f'Format option {format} not implemented yet')
 
+        # Use c_dict to look up the names of the columns with the compulsory
+        # names for stacked data.
         if (format == 'stacked'):
             self.c_dict = c_dict or DEFAULT_C_DICT
             self._col_s = self.c_dict['SampleId']
@@ -64,37 +89,67 @@ class Importer(WadiBaseClass):
             self._col_u = self.c_dict['Units']
             self._col_v = self.c_dict['Values']
 
+        # Define placeholder for the DataFrame that will contain the data
         self.df = None
-        self._infotable = InfoTable()
-
-        try:
-            os.remove("mapping_summary.xlsx")
-        except OSError:
-            pass
+        # Define placeholder for the infotable, which is a dict with
+        # information about column names, units, datatypes and values
+        self._infotable = None
 
     def _create_infotable(self, units, datatypes):
-        self._infotable = InfoTable() # Reset to be sure
+        """
+        Creates a nested dict with information about the imported data.
+        Each dict in the infotable will contain the following items:
+        - 'name': the name of the feature
+        - 'unit': the feature's units
+        - 'sampleids' (only for stacked data): the sample identifiers
+        - 'values': a view to the (concentration) values in self.df
+        - 'datatype': to indicate if the data are for a feature or sampleinfo
+
+        Parameters
+        ----------
+        units : list of strings
+            List with the units for each feature (or sampleinfo data). This
+            list is created in the '_read_file' function.
+        datatypes : list of strings
+            List with the datatype for each feature (or sampleinfo data). This
+            list is created in the '_read_file' function. Datatypes must all 
+            be in VALID_DATATYPES.
+        """
+        # Initialize
+        self._infotable = InfoTable() 
+        # Populate the infotable depending on the data format
         if (self.format == 'stacked'):
+            # Find the unique cominations of features + units in the DataFrame
             ufus = (self.df[self._col_f] + self.df[self._col_u]).dropna().unique()
             for fu in ufus:
+                # Select a unique feature + unit combination
                 idx = (self.df[self._col_f] + self.df[self._col_u] == fu)
-                key = self.df[self._col_f].loc[idx].iloc[0]
+                # Set the key in the infotable to the first element in the
+                # feature name column (all values in the column will be equal)
+                key = self.df.loc[idx, self._col_f].iloc[0]
+                # Define the dictionary with the required data
                 i_dict = {'name': key,
                           'unit': self.df.loc[idx, self._col_u].iloc[0], 
                           'sampleids': self.df.loc[idx, self._col_s],
                           'values': self.df.loc[idx, self._col_v],
                           'datatype': 'feature'}
+                # Add i_dict to the info_table
                 self._infotable[key] = i_dict
         elif (self.format == 'wide'):
+            # Iterate over the columns in the DataFrame
             for i, key in enumerate(self.df.columns):
+                # Pandas adds a dot followed by a number for duplicate columns
+                # so to get the real feature name, it must be removed
                 col_name = key
                 duplicate_nr = re.search('\.\d+$', col_name)
                 if duplicate_nr:
                     col_name = col_name.removesuffix(duplicate_nr.group()) # Requires Python 3.9 or later
+                # Define the dictionary with the required data
                 i_dict = {'name': col_name,
                           'unit': units[i], 
                           'values': self.df[key],
                           'datatype': datatypes[i]}
+                # Add i_dict to the info_table
                 self._infotable[key] = i_dict
         
         self._log(self._infotable)
@@ -102,14 +157,23 @@ class Importer(WadiBaseClass):
     def harmonize(self,
                   **kwargs  
                  ):
+        """
+        This function lets the user call the harmonize function of the 
+        Harmonize class.
+
+        Parameters
+        ----------
+        watertype : {'G', 'P'}, default 'G'
+            Watertype (Groundwater or Precipitation)
+
+        Returns
+        -------
+        pandas.DataFrame
+            A DataFrame with the data in wide format
+        """        
         
-        valid_kwargs = inspect.signature(Harmonizer).parameters
-        for kw in kwargs.copy(): # copy() is needed to avoid RuntimeError
-            if kw not in valid_kwargs:
-                self._warn(f"Ignoring invalid keyword argument '{kw}' in call to harmonizer.")
-                kwargs.pop(kw)        
          
-        h = Harmonizer(**kwargs)
+        h = Harmonizer(**valid_kwargs(Harmonizer, **kwargs))
         if (self.format == 'stacked'):
             rv = h.harmonize(self._infotable, self.df[self._col_s].unique())
         elif (self.format == 'wide'):
@@ -124,13 +188,7 @@ class Importer(WadiBaseClass):
              **kwargs
             ):
 
-        valid_kwargs = inspect.signature(Mapper).parameters
-        for kw in kwargs.copy(): # copy() is needed to avoid RuntimeError
-            if kw not in valid_kwargs:
-                self._warn(f"Ignoring invalid keyword argument '{kw}' in call to mapper.")
-                kwargs.pop(kw)        
-         
-        m = Mapper(**kwargs)
+        m = Mapper(**valid_kwargs(Mapper, **kwargs))
 
         m.match(self._infotable.keys(), 
                 self._infotable.list(s),
@@ -164,7 +222,7 @@ class Importer(WadiBaseClass):
                   **kwargs):
 
         # Infer log file name from file_path
-        self._log_fname = os.path.splitext(file_path)[0]
+        self._log_fname = Path(file_path).stem
         self._log("WADI log file", timestamp=True)
 
         pd_kwargs = copy.deepcopy(vars()['kwargs']) # deepcopy just to be sure
@@ -226,7 +284,6 @@ class Importer(WadiBaseClass):
         # Get reference to pandas reader function and determine its valid
         # keyword arguments
         pd_reader = getattr(pd, pd_reader_name)
-        valid_kwargs = inspect.signature(pd_reader).parameters
         
         # Start with an empty DataFrame and empty lists for units and datatype
         df = pd.DataFrame()
@@ -244,17 +301,14 @@ class Importer(WadiBaseClass):
                                          VALID_DATATYPES)
                 if (kwarg == 'index_col'):
                     raise ValueError("Argument 'index_col' not allowed in WADI")
-                # Drop any kwarg passed to read_file that is not a valid
-                # keyword argument for the requested Pandas reader function
-                if kwarg not in valid_kwargs:
-                    pd_kwargs.pop(kwarg)
             
             # Create a verbose message for the log file
             kws = ", ".join(f"{k}={v}" for k,v in pd_kwargs.items())
             self._log(f" * pandas.{pd_reader_name}('{file_path}', {kws})")
             
             # Call the requested Pandas reader function to import the data
-            df_r = pd_reader(file_path, **pd_kwargs)
+            df_r = pd_reader(file_path, 
+                             **valid_kwargs(pd_reader, **pd_kwargs))
                         
             # Use the pd.concat function to join the return values from the 
             # pandas reader function (i.e. the DataFrames read from the file)

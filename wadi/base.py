@@ -4,27 +4,21 @@ import warnings
 
 class WadiBaseClass(object):
     """
-    Class for importing hydrochemical data in a variety of formats
+    Base class for WADI classes. Defines functions to provide functionality
+    to log and print messages and warnings.
 
-    Examples
-    --------
-
-    TBC::
     """
 
-    def __init__(self,
-                ):
-        """
-        Parameters
-        ----------
-        """
-
+    def __init__(self):
         self._log_str = ""
+        self._log_fname = ""
     
-    def _remove_log_file(self,
-                       ):
+    def _remove_log_file(self):
+        """
+        Attempts to delete the log file
+        """
         try:
-            os.remove(self._log_file)
+            os.remove(self._log_fname)
         except OSError:
             pass
     
