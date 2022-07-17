@@ -4,7 +4,7 @@ Example 1: import stacked data
 
 Step 1: Initialize the WADI Importer class
 ==========================================
- 
+
 Let’s try to import an excel file with stacked data as an example. Of course,
 the very first thing to do is to import WADI. In the code example below it is renamed to
 wd. This makes the Importer class from WADI available as :code:`wd.Importer`. This

@@ -5,13 +5,12 @@ import re
 from wadi.base import WadiBaseClass
 from wadi.harmonize import Harmonizer
 from wadi.infotable import InfoTable
-from wadi.mapping import Mapper, MapperDict
+from wadi.mapping import Mapper
 from wadi.utils import check_arg, valid_kwargs
 
 # Required column headers for 'stacked' format
 REQUIRED_COLUMNS_S = ['SampleId', 'Features', 'Values', 'Units']
 DEFAULT_C_DICT = {s: s for s in REQUIRED_COLUMNS_S}
-#REQUIRED_HEADERS_W = []
 
 # Valid values for the 'format' kwarg
 VALID_FORMATS = ['stacked', 'wide', 'gef']
@@ -109,14 +108,17 @@ class Importer(WadiBaseClass):
         ----------
         units : list of strings
             List with the units for each feature (or sampleinfo data). This
-            list is created in the '_read_file' function.
+            list is created by the '_read_file' function based on the unit_row
+            kwarg passed by the user to read_data.
         datatypes : list of strings
             List with the datatype for each feature (or sampleinfo data). This
-            list is created in the '_read_file' function. Datatypes must all 
+            list is created by the '_read_file' function based on the datatype
+            kwarg passed by the user to read_data. Datatypes must all 
             be in VALID_DATATYPES.
         """
         # Initialize
         self._infotable = InfoTable() 
+
         # Populate the infotable depending on the data format
         if (self.format == 'stacked'):
             # Find the unique cominations of features + units in the DataFrame
@@ -163,8 +165,7 @@ class Importer(WadiBaseClass):
 
         Parameters
         ----------
-        watertype : {'G', 'P'}, default 'G'
-            Watertype (Groundwater or Precipitation)
+        
 
         Returns
         -------
@@ -172,13 +173,18 @@ class Importer(WadiBaseClass):
             A DataFrame with the data in wide format
         """        
         
-         
+        # Initialize
         h = Harmonizer(**valid_kwargs(Harmonizer, **kwargs))
+        
+        # Call the harmonize function, which takes the SampleIds as kwarg
+        # for the stacked format to be able to create a unique index. The
+        # infotable is passed as the first arg for both 'stacked' and 'wide'.
         if (self.format == 'stacked'):
             rv = h.harmonize(self._infotable, self.df[self._col_s].unique())
         elif (self.format == 'wide'):
             rv = h.harmonize(self._infotable)
         
+        # Write the logged messages to the log file
         h.update_log_file(f"{self._log_fname}.log")
     
         return rv
@@ -187,31 +193,65 @@ class Importer(WadiBaseClass):
              s,
              **kwargs
             ):
+        
+        """
+        Class internal function that is called by map_data and map_units
+        to start the mapping of feature/sampleinfo names or units.
 
+        Parameters
+        ----------
+        s : str
+            The value of s is either 'name' (when called by map_data) or 
+            'unit' (when called by map_units), which are valid keys for the
+            dicts stored in the infotable.        
+        """ 
+
+        # Initialize
         m = Mapper(**valid_kwargs(Mapper, **kwargs))
 
+        # Call the match method. Passes the keys of the infotable along with 
+        # a list of strings which contains either the 'name' or 'unit' values
+        # of all the items in infotable
         m.match(self._infotable.keys(), 
                 self._infotable.list(s),
                 s,
                )
-        
+
+        # Write the logged messages to the log file      
         m.update_log_file(f"{self._log_fname}.log")
+        # Write the DataFrame with the mapping summary to an Excel file
         m.df2excel(f"{s}_mapping_results_{self._log_fname}.xlsx",
                    f"{s.capitalize()}s")
-                   
+
+        # Transfer the aliases found by match to the infotable
+        # The key will be either alias_n or alias_u           
         i_key = f"alias_{s[0]}"
+        # Convert the alias column to a dictionary, the keys will be
+        # the values in the header column (which correspond to the keys
+        # of the infotable)
         a_dict = m.df.set_index('header').dropna()['alias'].to_dict()
+        # Loop over the new dict with the aliases and tranfer the results
+        # into the infotable
         for key, value in a_dict.items():
             self._infotable[key][i_key] = value
 
     def map_data(self,
                   **kwargs,
                  ):
+        """
+        Function to map sampleinfo or feature headers
+
+        """         
         self._map('name', **kwargs)
 
     def map_units(self,
                   **kwargs,
                  ):
+        """
+        Function to map units
+
+        """  
+        # If no match method was specified by the user, select 'regex'       
         if ('match_method' not in kwargs):
             kwargs['match_method'] = 'regex'
         self._map('unit', **kwargs)
@@ -225,7 +265,11 @@ class Importer(WadiBaseClass):
         self._log_fname = Path(file_path).stem
         self._log("WADI log file", timestamp=True)
 
+        # Before calling the Pandas reader function, do some error 
+        # checking/tweaking of the kwargs
         pd_kwargs = copy.deepcopy(vars()['kwargs']) # deepcopy just to be sure
+
+        # Use the defaults for na_values if the user did not specify their own 
         if ('na_values' not in pd_kwargs):
             pd_kwargs['na_values'] = DEFAULT_NA_VALUES
         
@@ -266,11 +310,6 @@ class Importer(WadiBaseClass):
         # Write the log string to the log file (note that mode is 'w',
         # because at this point the log file is created for the first time)
         self.update_log_file(f"{self._log_fname}.log", 'w')
-    
-    # @staticmethod
-    # def _s_dict2df(s_dict):
-    #     data = {k0: [v0.get(k1) for k1 in v0 if k1 != 'values'] for k0, v0 in s_dict.items()}
-    #     return pd.DataFrame.from_dict(data, orient='index')
 
     def _read_file(self,
                   file_path,
@@ -345,20 +384,20 @@ class Importer(WadiBaseClass):
 
         return pd_reader(file_path, **units_kwargs).fillna('').values[-1].tolist()
 
-    def save_mapping_summary(self, 
-                             xl_fname='mapping_summary.xlsx'):
-        writer = pd.ExcelWriter(xl_fname)
+    # def save_mapping_summary(self, 
+    #                          xl_fname='mapping_summary.xlsx'):
+    #     writer = pd.ExcelWriter(xl_fname)
 
-        for s, m in self.mappers.items():
-            if m is None:
-                continue
-            self._log(f"Saving {s} mapping results to {xl_fname}.")
-            m.df.to_excel(writer, 
-                          sheet_name=f"{s.capitalize()}s")
+    #     for s, m in self.mappers.items():
+    #         if m is None:
+    #             continue
+    #         self._log(f"Saving {s} mapping results to {xl_fname}.")
+    #         m.df.to_excel(writer, 
+    #                       sheet_name=f"{s.capitalize()}s")
         
-        writer.save()
+    #     writer.save()
 
-        self.update_log_file(self._log_fname, 'a')
+    #     self.update_log_file(self._log_fname, 'a')
 
     # def _get_slice(self, slicer):
     #     """

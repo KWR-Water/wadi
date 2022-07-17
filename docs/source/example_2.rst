@@ -1,7 +1,7 @@
 ========================================================================================================
 Example 2: import wide data
 ========================================================================================================
- 
+
 Inspection of the spreadsheet file 'testfile1_io.xlsx' shows that
 its contents are a real mess. For example, some concentration data
 are spread over two columns. Also the rows with column headers are 
