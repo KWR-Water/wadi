@@ -142,7 +142,7 @@ class Harmonizer(WadiBaseClass):
             # The column name in the new DataFrame will be the item's alias
             alias_n = i_dict['alias_n']
             alias_u = i_dict['alias_u']
-
+            
             # Check the datatype ('sampleinfo' or 'feature')
             datatype = i_dict['datatype']
 

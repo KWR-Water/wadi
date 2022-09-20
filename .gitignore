@@ -138,3 +138,9 @@ examples/KIWK KOW Grubbenvorst  WP PP ruw rein 20210608.xlsx
 test*.py
 .google-cookie
 .pylint.d
+chemische_data_peilfilters_dwarsweg_202207.xlsx
+dwarsweg_harmonized.xlsx
+name_mapping_results_chemische_data_peilfilters_dwarsweg_202207.xlsx
+unit_mapping_results_chemische_data_peilfilters_dwarsweg_202207.xlsx
+name_mapping_results_realworlddata_subset.xlsx
+test_wadi_stacked.zip

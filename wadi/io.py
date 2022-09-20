@@ -229,7 +229,8 @@ class Importer(WadiBaseClass):
         # Convert the alias column to a dictionary, the keys will be
         # the values in the header column (which correspond to the keys
         # of the infotable)
-        a_dict = m.df.set_index('header').dropna()['alias'].to_dict()
+        a_dict = m.df.set_index('header')['alias'].to_dict()
+
         # Loop over the new dict with the aliases and tranfer the results
         # into the infotable
         for key, value in a_dict.items():

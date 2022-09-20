@@ -218,6 +218,10 @@ class Mapper(WadiBaseClass):
             except NotImplementedError:
                 raise NotImplementedError(f"Match method '{m}' not implemented")
 
+        idx = self.df['alias'].isnull()
+        self.df.loc[idx, 'alias'] = self.df.loc[idx, 'modified'].array
+        self.df.loc[idx, 'match'] = ''
+
     def df2excel(self,
                  xl_fname,
                  sheet_name):
