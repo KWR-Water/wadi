@@ -5,7 +5,12 @@ from pint import UnitRegistry
 from pint.errors import DimensionalityError, UndefinedUnitError
 import re
 from wadi.base import WadiBaseClass
-from wadi.utils import check_arg, check_if_nested_list
+from wadi.utils import check_if_nested_list
+
+# Suppress performance warnings for that occur during harmonize because
+# DataFrame can contain lots of NaNs
+import warnings
+warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
 BD_FACTORS = {'delete': 0, 'halve': 0.5}
 # VALID_DUPLICATE_COLS_OPTIONS = ['keep_first', 'keep_all']
@@ -21,6 +26,7 @@ class Harmonizer(WadiBaseClass):
     """
 
     def __init__(self,
+                 convert_units=False,
                  target_units='mg/l', # str, immutable
                  override_units=None,
                 #  convert_bds='halve', # str, immutable
@@ -35,6 +41,7 @@ class Harmonizer(WadiBaseClass):
 
         WadiBaseClass.__init__(self)
 
+        self.convert_units = convert_units
         self.target_units = target_units
         self.override_units = override_units or {}
         self.drop_columns = drop_columns or []
@@ -112,10 +119,16 @@ class Harmonizer(WadiBaseClass):
 
     def harmonize(self,
                   infotable,
-                  index=None,
+                  sampleids=None,
                  ):
         
         self._log("Harmonizing...")
+
+        if isinstance(sampleids, pd.DataFrame): # This is the case for stacked data only
+            index = sampleids.copy() # Create a copy just to be sure
+            index = pd.MultiIndex.from_frame(index).unique()
+        else:
+            index = sampleids
 
         df = pd.DataFrame(index=index)
 
@@ -136,7 +149,15 @@ class Harmonizer(WadiBaseClass):
             # together at the end into a new DataFrame
             values = i_dict['values']
             if ('sampleids' in i_dict): # For stacked data
-                values = values.set_axis(i_dict['sampleids'])
+                if isinstance(i_dict['sampleids'], pd.DataFrame):
+                    values = values.set_axis(pd.MultiIndex.from_frame(i_dict['sampleids']))
+                else:
+                    values = values.set_axis(i_dict['sampleids'])
+
+                if (any(values.index.duplicated())):
+                    values = values.loc[~values.index.duplicated()]
+                    self._warn(f"Duplicate sampleids found for {key}. Keeping only first occurrence.")
+                    
             values = pd.to_numeric(values.dropna(), errors='ignore')
 
             # The column name in the new DataFrame will be the item's alias
@@ -149,7 +170,7 @@ class Harmonizer(WadiBaseClass):
             # Process the data depending on the datatype
             # For features, convert units and handle values
             # below the detection limit
-            if (datatype == 'feature'):
+            if (self.convert_units and (datatype == 'feature')):
                 # Try to parse the unit string with pint. Returns a pint
                 # Quantity object q and the molecular weight to be used for
                 # unit conversion
@@ -173,6 +194,9 @@ class Harmonizer(WadiBaseClass):
                 values = values.apply(self._convert_values, 
                                       uc_factor=uc_factor)
 
+            if any(values.index.duplicated()):
+                for i in values.index:
+                    print(i)
             df[key] = values
             
             column_header_dict[key] = alias_n

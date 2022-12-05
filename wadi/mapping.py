@@ -33,6 +33,12 @@ class MapperDict(UserDict):
         with open(fname, 'r') as fp:
             return cls(json.load(fp))
 
+    @classmethod
+    def default_dict(cls, v0, v1):
+        dfj = pd.read_json('D:/Users/postvi/Documents/github/wadi/default_feature_map.json')
+        dfd = dfj[[v0, v1]].explode(v0).dropna()
+        return dfd.set_index(v0)[v1].to_dict()
+
     def to_file(self, fname):
         with open(fname, 'w') as fp:
             json.dump(self.data, fp, indent=2)

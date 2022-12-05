@@ -180,7 +180,8 @@ class Importer(WadiBaseClass):
         # for the stacked format to be able to create a unique index. The
         # infotable is passed as the first arg for both 'stacked' and 'wide'.
         if (self.format == 'stacked'):
-            rv = h.harmonize(self._infotable, self.df[self._col_s].unique())
+            rv = h.harmonize(self._infotable, 
+                             self.df[self._col_s])
         elif (self.format == 'wide'):
             rv = h.harmonize(self._infotable)
         
@@ -260,6 +261,7 @@ class Importer(WadiBaseClass):
     def read_data(self,
                   file_path,
                   pd_reader='read_excel',
+                  mask=None, # Only for stacked data, column name with T/F data
                   **kwargs):
 
         # Infer log file name from file_path
@@ -302,6 +304,10 @@ class Importer(WadiBaseClass):
                                                     pd_reader,
                                                     panes)
 
+        if (mask is not None):
+            print(self.df.shape)
+            self.df = self.df.loc[self.df[mask]]
+            print(self.df.shape)
         #self._check_df_requirements()
 
         # Create the dictionary that stores views to the data read as well as
