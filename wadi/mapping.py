@@ -7,7 +7,8 @@ import os
 import pandas as pd
 import re
 from wadi.base import WadiBaseClass
-from wadi.utils import StringList, check_arg_list, query_pubchem
+from wadi.utils import StringList, check_arg_list
+from wadi.apis import query_pubchem_fuzzy, query_pubchem_cas, query_pubchem_synonyms
 from wadi.regex import UnitRegexMapper
 
 DEFAULT_STR2REPLACE = {'Ä': 'a', 'ä': 'a', 'Ë': 'e', 'ë': 'e',
@@ -38,6 +39,23 @@ class MapperDict(UserDict):
         dfj = pd.read_json('D:/Users/postvi/Documents/github/wadi/default_feature_map.json')
         dfd = dfj[[v0, v1]].explode(v0).dropna()
         return dfd.set_index(v0)[v1].to_dict()
+
+    @classmethod
+    def pubchem_cas_dict(cls, strings):
+        return {s: query_pubchem_cas(s) for s in strings}
+
+    @classmethod
+    def pubchem_cid_dict(cls, strings):
+        rv = {}
+        for s in strings:
+            res = query_pubchem_synonyms(s)
+            print(s)
+            if (len(res)):
+                rv[s] = res[0]['CID']
+            else:
+                rv[s] = None
+        return rv
+        # return {s: query_pubchem_cid(s) for s in strings}
 
     def to_file(self, fname):
         with open(fname, 'w') as fp:
@@ -90,6 +108,7 @@ class Mapper(WadiBaseClass):
                  replace_strings=None,
                  remove_strings=None,
                  strip_parentheses=False,
+                 allow_empty_aliases=False,
                 ):
         """
         Parameters
@@ -109,6 +128,7 @@ class Mapper(WadiBaseClass):
         self.replace_strings = replace_strings or DEFAULT_STR2REPLACE
         self.remove_strings = remove_strings or DEFAULT_STR2REMOVE
         self.match_method = check_arg_list(self.match_method, VALID_METHODS)
+        self.allow_empty_aliases = allow_empty_aliases
 
         self.df = {}
 
@@ -133,7 +153,7 @@ class Mapper(WadiBaseClass):
         return [m_dict.get(s[0]) if s else None for s in scores]
 
     def _match_pubchem(self, strings):
-        return [query_pubchem(s) for s in strings]
+        return [query_pubchem_fuzzy(s) for s in strings]
 
     def match(self,
               columns,
@@ -224,9 +244,10 @@ class Mapper(WadiBaseClass):
             except NotImplementedError:
                 raise NotImplementedError(f"Match method '{m}' not implemented")
 
-        idx = self.df['alias'].isnull()
-        self.df.loc[idx, 'alias'] = self.df.loc[idx, 'modified'].array
-        self.df.loc[idx, 'match'] = ''
+        if not self.allow_empty_aliases:
+            idx = self.df['alias'].isnull()
+            self.df.loc[idx, 'alias'] = self.df.loc[idx, 'modified'].array
+            self.df.loc[idx, 'match'] = ''
 
     def df2excel(self,
                  xl_fname,

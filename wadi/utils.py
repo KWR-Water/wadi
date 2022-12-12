@@ -4,22 +4,6 @@ import re
 import requests
 import time
 
-def query_pubchem(s, requests_per_second=5):
-    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete/compound/{s}/json?limit=3"
-    try:
-        response = requests.get(url, timeout=(2, 5))
-        response.raise_for_status() # Raises exception unless request was successful
-    except Exception as e:
-        print("An error occured during contacting of the PubChem API.")
-        return None
-    else:
-        r = response.json()
-        if (r['total'] > 0):
-            return (r['dictionary_terms']['compound'][0])
-        else:
-            return None
-        time.sleep(1 / requests_per_second) # API does not accept >5 requests per second
-
 def check_arg(arg, valid_args):
     """
     """

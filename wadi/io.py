@@ -37,6 +37,8 @@ DEFAULT_NA_VALUES = ['',
                     'nan', 
                     '-nan']
 
+OUTPUT_DIR = "wadi_output"
+
 class Importer(WadiBaseClass):
     """
     Class for importing hydrochemical data in a variety of formats
@@ -221,7 +223,8 @@ class Importer(WadiBaseClass):
         # Write the logged messages to the log file      
         m.update_log_file(f"{self._log_fname}.log")
         # Write the DataFrame with the mapping summary to an Excel file
-        m.df2excel(f"{s}_mapping_results_{self._log_fname}.xlsx",
+        fname = Path(OUTPUT_DIR, f"{s}_mapping_results_{self._log_fname.stem}.xlsx")
+        m.df2excel(fname,
                    f"{s.capitalize()}s")
 
         # Transfer the aliases found by match to the infotable
@@ -236,6 +239,9 @@ class Importer(WadiBaseClass):
         # into the infotable
         for key, value in a_dict.items():
             self._infotable[key][i_key] = value
+        
+        # Create subdirectory for output (log files, Excel files)
+        Path(OUTPUT_DIR).mkdir(exist_ok=True)
 
     def map_data(self,
                   **kwargs,
@@ -265,7 +271,8 @@ class Importer(WadiBaseClass):
                   **kwargs):
 
         # Infer log file name from file_path
-        self._log_fname = Path(file_path).stem
+        p = Path(file_path)
+        self._log_fname = Path(OUTPUT_DIR, p.stem)
         self._log("WADI log file", timestamp=True)
 
         # Before calling the Pandas reader function, do some error 
