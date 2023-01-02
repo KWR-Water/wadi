@@ -1,6 +1,9 @@
 from datetime import datetime as dt
 import os
+from pathlib import Path
 import warnings
+
+OUTPUT_DIR = "wadi_output"
 
 class WadiBaseClass(object):
     """
@@ -12,6 +15,9 @@ class WadiBaseClass(object):
     def __init__(self):
         self._log_str = ""
         self._log_fname = ""
+
+        # Create subdirectory for output (log files, Excel files)
+        Path(OUTPUT_DIR).mkdir(exist_ok=True)
     
     def _remove_log_file(self):
         """

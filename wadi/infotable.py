@@ -1,6 +1,5 @@
 from collections import UserDict
 
-
 DICT_KEYS = ['name', 
              'unit', 
              'values',
@@ -22,7 +21,7 @@ class InfoTable(UserDict):
         if not all([k in DICT_KEYS for k in value]):
             raise TypeError("Invalid dict")
         # Add aliases to ensure an alias is always defined, 
-        # even if mappnig does not result in any match
+        # even if mapping does not result in any match
         value['alias_n'] = value['name']
         value['alias_u'] = value['unit']
         self.data[key] = value

@@ -3,11 +3,12 @@ import fuzzywuzzy.fuzz as fwf
 import fuzzywuzzy.process as fwp
 import json
 import numpy as np
-import os
 import pandas as pd
+from pathlib import Path
 import re
-from wadi.base import WadiBaseClass
-from wadi.utils import StringList, check_arg_list
+
+from wadi.base import OUTPUT_DIR, WadiBaseClass
+from wadi.utils import StringList, check_arg_list, fuzzy_min_score
 from wadi.apis import query_pubchem_fuzzy, query_pubchem_cas, query_pubchem_synonyms
 from wadi.regex import UnitRegexMapper
 
@@ -15,8 +16,6 @@ DEFAULT_STR2REPLACE = {'Ä': 'a', 'ä': 'a', 'Ë': 'e', 'ë': 'e',
                        'Ö': 'o', 'ö': 'o', 'ï': 'i', 'Ï': 'i',
                        'μ': 'u', 'µ': 'u', '%': 'percentage'}
 DEFAULT_FILTERSTR = ['gefiltreerd', 'na filtratie', 'filtered', 'filtration', ' gef', 'filtratie']                           
-
-DEFAULT_MINSCORES = {1: 100, 3: 100, 4: 90, 5: 85, 6: 80, 8: 75}
 
 DEFAULT_STR2REMOVE = ['icpms', 'icpaes', 'gf aas', 'icp', 'koude damp aas', 'koude damp',  # whitespace, string
                       'berekend', 'opdrachtgever', 'gehalte', 'kretl',
@@ -36,25 +35,27 @@ class MapperDict(UserDict):
 
     @classmethod
     def default_dict(cls, v0, v1):
-        dfj = pd.read_json('D:/Users/postvi/Documents/github/wadi/default_feature_map.json')
+        # Get the path of the current module file's parent directory
+        filepath = Path(__file__).parents[1]
+        dfj = pd.read_json(Path(filepath, 'default_feature_map.json'))
         dfd = dfj[[v0, v1]].explode(v0).dropna()
-        return dfd.set_index(v0)[v1].to_dict()
+        return cls(dfd.set_index(v0)[v1].to_dict())
 
     @classmethod
     def pubchem_cas_dict(cls, strings):
-        return {s: query_pubchem_cas(s) for s in strings}
+        return cls({s: query_pubchem_cas(s) for s in strings})
 
     @classmethod
     def pubchem_cid_dict(cls, strings):
         rv = {}
         for s in strings:
             res = query_pubchem_synonyms(s)
-            print(s)
+            #print(s)
             if (len(res)):
                 rv[s] = res[0]['CID']
             else:
                 rv[s] = None
-        return rv
+        return cls(rv)
         # return {s: query_pubchem_cid(s) for s in strings}
 
     def to_file(self, fname):
@@ -89,7 +90,6 @@ class MapperDict(UserDict):
 
         if (i == (max_attempts - 1)):
             raise ValueError("Translation failed. Try again later...")
-
 class Mapper(WadiBaseClass):
     """
     Class for mapping hydrochemical data
@@ -101,39 +101,96 @@ class Mapper(WadiBaseClass):
     """
 
     def __init__(self,
+                 parent,
+                 s,
+                #  m_dict=None,
+                #  match_method=None,
+                #  minscores=None,
+                #  regex_map=UnitRegexMapper(),
+                #  replace_strings=None,
+                #  remove_strings=None,
+                #  strip_parentheses=False,
+                #  allow_empty_aliases=False,
+                ):
+        """
+        Parameters
+        ----------
+        s : str
+            The value of s is either 'name' (when called by map_data) or 
+            'unit' (when called by map_units), which are valid keys for the
+            dicts stored in the infotable.
+        """
+
+        WadiBaseClass.__init__(self)
+
+        self.parent = parent
+        self.s = s
+
+        self.m_dict = None
+        self.match_method = ['exact']
+        self.strip_parentheses = False
+        self.regex_map = UnitRegexMapper()
+        self.replace_strings = DEFAULT_STR2REPLACE
+        self.remove_strings = DEFAULT_STR2REMOVE
+        self.allow_empty_aliases = False
+
+        #self.df = {}
+
+    def __call__(self,
                  m_dict=None,
                  match_method=None,
-                 minscores=None,
                  regex_map=UnitRegexMapper(),
                  replace_strings=None,
                  remove_strings=None,
                  strip_parentheses=False,
                  allow_empty_aliases=False,
                 ):
-        """
-        Parameters
-        ----------
-            trim_duplicate_suffixes: bool
-                If True, the suffixes added to column headers by the pandas functions
-                read_csv and read_excel will be trimmed from the elements in strings.
-        """
 
-        WadiBaseClass.__init__(self)
+        if self.s == 'name':
+            self.match_method = match_method or ['exact']
+        elif self.s == 'unit':
+            self.match_method = match_method or ['regex']
+        self.match_method = check_arg_list(self.match_method, VALID_METHODS)
 
-        self.m_dict = m_dict
-        self.match_method = match_method or ['exact']
-        self.minscores = minscores or DEFAULT_MINSCORES
+        if isinstance(m_dict, dict):
+            self.m_dict = MapperDict(m_dict)
+        else:
+            self.m_dict = m_dict
+
         self.strip_parentheses = strip_parentheses
         self.regex_map = regex_map
         self.replace_strings = replace_strings or DEFAULT_STR2REPLACE
         self.remove_strings = remove_strings or DEFAULT_STR2REMOVE
-        self.match_method = check_arg_list(self.match_method, VALID_METHODS)
         self.allow_empty_aliases = allow_empty_aliases
 
-        self.df = {}
+        # Call the match method. Passes the keys of the infotable along with 
+        # a list of strings which contains either the 'name' or 'unit' values
+        # of all the items in infotable
+        self._match(
+            # self._infotable.keys(), 
+            # self._infotable.list(self.s),
+            )
+
+        # # Write the DataFrame with the mapping summary to an Excel file
+        # fname = Path(OUTPUT_DIR, f"{s}_mapping_results_{self._log_fname.stem}.xlsx")
+        # m.df2excel(fname,
+        #            f"{s.capitalize()}s")
+
+        # # Transfer the aliases found by match to the infotable
+        # # The key will be either alias_n or alias_u           
+        # i_key = f"alias_{s[0]}"
+        # # Convert the alias column to a dictionary, the keys will be
+        # # the values in the header column (which correspond to the keys
+        # # of the infotable)
+        # a_dict = m.df.set_index('header')['alias'].to_dict()
+
+        # # Loop over the new dict with the aliases and tranfer the results
+        # # into the infotable
+        # for key, value in a_dict.items():
+        #     self._infotable[key][i_key] = value
 
     def _default_m_dict(self, strings):
-        return {k: k for k in  dict.fromkeys(strings)}
+        return {k: k for k in dict.fromkeys(strings)}
 
     def _match_exact(self, strings, m_dict):
         return [m_dict.get(s) for s in strings]
@@ -147,7 +204,7 @@ class Mapper(WadiBaseClass):
         fuzzy_score = lambda s: fwp.extractOne(s, 
                                                list(m_dict.keys()),
                                                scorer=fwf.token_sort_ratio,
-                                               score_cutoff=80,
+                                               score_cutoff=fuzzy_min_score(s),
                                               )
         scores = [fuzzy_score(s) for s in strings]
         return [m_dict.get(s[0]) if s else None for s in scores]
@@ -155,10 +212,9 @@ class Mapper(WadiBaseClass):
     def _match_pubchem(self, strings):
         return [query_pubchem_fuzzy(s) for s in strings]
 
-    def match(self,
-              columns,
-              strings,
-              s,
+    def _match(self,
+            #   columns,
+            #   strings,
              ):
         """
         
@@ -168,20 +224,23 @@ class Mapper(WadiBaseClass):
 
         self._log("Mapping...")
         
-        try:
-            strings = StringList(strings)
-        except:
-            TypeError("Argument 'strings' is not of a valid type")
+        columns = self.parent._infotable.keys()
+        strings = StringList(self.parent._infotable.list(self.s))
+        # try:
+        #     columns = self.parent._infotable.keys()
+        #     strings = StringList(self.parent._infotable.list(self.s))
+        # except:
+        #     TypeError("Not a valid type")
 
         if self.m_dict is None:
             self.m_dict = self._default_m_dict(strings)
         
-        self.df = pd.DataFrame({'header': columns,
-                                'name': strings})
+        df = pd.DataFrame({'header': columns,
+                            'name': strings})
 
         strings.replace_strings(self.replace_strings)
         strings.replace_strings({k: '' for k in self.remove_strings})
-        self.df['modified'] = strings
+        df['modified'] = strings
 
         # Check if 'ascii' or 'fuzzy' were passed
         if any([m in ['ascii', 'fuzzy'] for m in self.match_method]): 
@@ -194,21 +253,21 @@ class Mapper(WadiBaseClass):
             keys_t.tidy_strings()
             m_dict_t = {k1: self.m_dict.get(k0) for k0, k1 in zip(self.m_dict, keys_t)}
 
-            self.df['tidied'] = strings_t
+            df['tidied'] = strings_t
 
-        self.df['match'] = np.nan # Stores the item that was matched
-        self.df['alias'] = np.nan # Stores the alias of the matched item
-        self.df['method'] = np.nan # Stores the method with which a match was found
+        df['match'] = np.nan # Stores the item that was matched
+        df['alias'] = np.nan # Stores the alias of the matched item
+        df['method'] = np.nan # Stores the method with which a match was found
         
-        # Copy only relevant columns from self.df to dfsub. List comprehension
+        # Copy only relevant columns from df to dfsub. List comprehension
         # is necessary to make a selection because 'tidied' may not occur in 
-        # self.df if the method is not 'ascii' or 'fuzzy'
-        cols = [c for c in ['name', 'modified', 'tidied', 'match'] if c in self.df.columns]
+        # df if the method is not 'ascii' or 'fuzzy'
+        cols = [c for c in ['name', 'modified', 'tidied', 'match'] if c in df.columns]
         for m in self.match_method:
             try:
                 # Select only the rows for which no match was found yet
-                idx = self.df['alias'].isnull()
-                dfsub = self.df.loc[idx, cols].copy()
+                idx = df['alias'].isnull()
+                dfsub = df.loc[idx, cols].copy()
                 # The term to be matched depends on the method
                 if m in ['exact', 'regex', 'pubchem']:
                     dfsub['match'] = dfsub['modified']
@@ -234,7 +293,7 @@ class Mapper(WadiBaseClass):
                 idx = ~dfsub['alias'].isnull()
                 dfsub.loc[idx, 'method'] = m
                 # Update the main df with the values in dfsub
-                self.df.update(dfsub)
+                df.update(dfsub)
 
                 self._log(f" * Match method {m} found the following matches:")
                 for name, alias in zip(dfsub['name'], dfsub['alias']):
@@ -245,19 +304,45 @@ class Mapper(WadiBaseClass):
                 raise NotImplementedError(f"Match method '{m}' not implemented")
 
         if not self.allow_empty_aliases:
-            idx = self.df['alias'].isnull()
-            self.df.loc[idx, 'alias'] = self.df.loc[idx, 'modified'].array
-            self.df.loc[idx, 'match'] = ''
+            idx = df['alias'].isnull()
+            df.loc[idx, 'alias'] = df.loc[idx, 'modified'].array
+            df.loc[idx, 'match'] = ''
 
-    def df2excel(self,
-                 xl_fname,
-                 sheet_name):
-
-        writer = pd.ExcelWriter(xl_fname)
-
-        self.df.to_excel(writer, 
-                         sheet_name=sheet_name,
-                         index=False,
-                        )
+        # Write the DataFrame with the mapping summary to an Excel file
+        xl_fname = Path(OUTPUT_DIR, f"{self.s}_mapping_results_{self.parent._log_fname.stem}.xlsx")
+        sheet_name = f"{self.s.capitalize()}s"
+        # self._df2excel(fname,
+        #     f"{self.s.capitalize()}s")
+        df.to_excel(xl_fname, 
+                    sheet_name=sheet_name,
+                    index=False,
+                   )
         
-        writer.save()
+        # Transfer the aliases found by match to the parent's infotable
+        # The key will be either alias_n or alias_u           
+        i_key = f"alias_{self.s[0]}"
+        # Convert the alias column to a dictionary, the keys will be
+        # the values in the header column (which correspond to the keys
+        # of the parent's infotable)
+        a_dict = df.set_index('header')['alias'].to_dict()
+
+        # Loop over the new dict with the aliases and tranfer the results
+        # into the infotable
+        for key, value in a_dict.items():
+            self.parent._infotable[key][i_key] = value
+
+        # Write the logged messages to the log file
+        self.update_log_file(f"{self.parent._log_fname}.log")
+
+    # def _df2excel(self,
+    #              xl_fname,
+    #              sheet_name):
+
+    #     writer = pd.ExcelWriter(xl_fname)
+
+    #     self.df.to_excel(writer, 
+    #                      sheet_name=sheet_name,
+    #                      index=False,
+    #                     )
+        
+    #     writer.save()

@@ -2,7 +2,7 @@ import copy
 import pandas as pd
 from pathlib import Path
 import re
-from wadi.base import WadiBaseClass
+from wadi.base import OUTPUT_DIR, WadiBaseClass
 from wadi.harmonize import Harmonizer
 from wadi.infotable import InfoTable
 from wadi.mapping import Mapper
@@ -36,8 +36,6 @@ DEFAULT_NA_VALUES = ['',
                     '-NaN', 
                     'nan', 
                     '-nan']
-
-OUTPUT_DIR = "wadi_output"
 
 class Importer(WadiBaseClass):
     """
@@ -85,7 +83,14 @@ class Importer(WadiBaseClass):
         # names for stacked data.
         if (format == 'stacked'):
             self.c_dict = c_dict or DEFAULT_C_DICT
-            self._col_s = self.c_dict['SampleId']
+            
+            # _col_s must be a list otherwise the creation
+            # of a MultiIndex DataFrame in Harmonizer.harmonize
+            # will fail
+            if isinstance(self.c_dict['SampleId'], list):
+                self._col_s = self.c_dict['SampleId']
+            else:
+                self._col_s = [self.c_dict['SampleId']]
             self._col_f = self.c_dict['Features']
             self._col_u = self.c_dict['Units']
             self._col_v = self.c_dict['Values']
@@ -95,6 +100,19 @@ class Importer(WadiBaseClass):
         # Define placeholder for the infotable, which is a dict with
         # information about column names, units, datatypes and values
         self._infotable = None
+
+        # Initialize Harmonizer object. The Harmonizer class is designed
+        # to be callable so the self.harmonize attribute becomes a
+        # function that the user can call.
+        self.harmonize = Harmonizer(self)
+
+        # Initialize Mapper objects. The Mapper class is designed
+        # to be callable so the self.map_data and self.map_units 
+        # attributes becomes functions that the user can call. The
+        # 'name' and 'unit' arguments correspond to the keys in the
+        # infotable.
+        self.map_data = Mapper(self, 'name')
+        self.map_units = Mapper(self, 'unit')
 
     def _create_infotable(self, units, datatypes):
         """
@@ -158,111 +176,108 @@ class Importer(WadiBaseClass):
         
         self._log(self._infotable)
 
-    def harmonize(self,
-                  **kwargs  
-                 ):
-        """
-        This function lets the user call the harmonize function of the 
-        Harmonize class.
+    # def harmonize_obsolete(self,
+    #               **kwargs  
+    #              ):
+    #     """
+    #     This function lets the user call the harmonize function of the 
+    #     Harmonize class.
 
-        Parameters
-        ----------
+    #     Parameters
+    #     ----------
         
 
-        Returns
-        -------
-        pandas.DataFrame
-            A DataFrame with the data in wide format
-        """        
+    #     Returns
+    #     -------
+    #     pandas.DataFrame
+    #         A DataFrame with the data in wide format
+    #     """        
         
-        # Initialize
-        h = Harmonizer(**valid_kwargs(Harmonizer, **kwargs))
+    #     # Initialize
+    #     h = Harmonizer(**valid_kwargs(Harmonizer, **kwargs))
         
-        # Call the harmonize function, which takes the SampleIds as kwarg
-        # for the stacked format to be able to create a unique index. The
-        # infotable is passed as the first arg for both 'stacked' and 'wide'.
-        if (self.format == 'stacked'):
-            rv = h.harmonize(self._infotable, 
-                             self.df[self._col_s])
-        elif (self.format == 'wide'):
-            rv = h.harmonize(self._infotable)
+    #     # Call the harmonize function, which takes the SampleIds as kwarg
+    #     # for the stacked format to be able to create a unique index. The
+    #     # infotable is passed as the first arg for both 'stacked' and 'wide'.
+    #     if (self.format == 'stacked'):
+    #         rv = h.harmonize(self._infotable, 
+    #                          self.df[self._col_s])
+    #     elif (self.format == 'wide'):
+    #         rv = h.harmonize(self._infotable)
         
-        # Write the logged messages to the log file
-        h.update_log_file(f"{self._log_fname}.log")
+    #     # Write the logged messages to the log file
+    #     h.update_log_file(f"{self._log_fname}.log")
     
-        return rv
+    #     return rv
 
-    def _map(self,
-             s,
-             **kwargs
-            ):
+    # def _map_obsolete(self,
+    #          s,
+    #          **kwargs
+    #         ):
         
-        """
-        Class internal function that is called by map_data and map_units
-        to start the mapping of feature/sampleinfo names or units.
+    #     """
+    #     Class internal function that is called by map_data and map_units
+    #     to start the mapping of feature/sampleinfo names or units.
 
-        Parameters
-        ----------
-        s : str
-            The value of s is either 'name' (when called by map_data) or 
-            'unit' (when called by map_units), which are valid keys for the
-            dicts stored in the infotable.        
-        """ 
+    #     Parameters
+    #     ----------
+    #     s : str
+    #         The value of s is either 'name' (when called by map_data) or 
+    #         'unit' (when called by map_units), which are valid keys for the
+    #         dicts stored in the infotable.        
+    #     """ 
 
-        # Initialize
-        m = Mapper(**valid_kwargs(Mapper, **kwargs))
+    #     # Initialize
+    #     m = Mapper(**valid_kwargs(Mapper, **kwargs))
 
-        # Call the match method. Passes the keys of the infotable along with 
-        # a list of strings which contains either the 'name' or 'unit' values
-        # of all the items in infotable
-        m.match(self._infotable.keys(), 
-                self._infotable.list(s),
-                s,
-               )
+    #     # Call the match method. Passes the keys of the infotable along with 
+    #     # a list of strings which contains either the 'name' or 'unit' values
+    #     # of all the items in infotable
+    #     m.match(self._infotable.keys(), 
+    #             self._infotable.list(s),
+    #             s,
+    #            )
 
-        # Write the logged messages to the log file      
-        m.update_log_file(f"{self._log_fname}.log")
-        # Write the DataFrame with the mapping summary to an Excel file
-        fname = Path(OUTPUT_DIR, f"{s}_mapping_results_{self._log_fname.stem}.xlsx")
-        m.df2excel(fname,
-                   f"{s.capitalize()}s")
+    #     # Write the logged messages to the log file      
+    #     m.update_log_file(f"{self._log_fname}.log")
+    #     # Write the DataFrame with the mapping summary to an Excel file
+    #     fname = Path(OUTPUT_DIR, f"{s}_mapping_results_{self._log_fname.stem}.xlsx")
+    #     m.df2excel(fname,
+    #                f"{s.capitalize()}s")
 
-        # Transfer the aliases found by match to the infotable
-        # The key will be either alias_n or alias_u           
-        i_key = f"alias_{s[0]}"
-        # Convert the alias column to a dictionary, the keys will be
-        # the values in the header column (which correspond to the keys
-        # of the infotable)
-        a_dict = m.df.set_index('header')['alias'].to_dict()
+    #     # Transfer the aliases found by match to the infotable
+    #     # The key will be either alias_n or alias_u           
+    #     i_key = f"alias_{s[0]}"
+    #     # Convert the alias column to a dictionary, the keys will be
+    #     # the values in the header column (which correspond to the keys
+    #     # of the infotable)
+    #     a_dict = m.df.set_index('header')['alias'].to_dict()
 
-        # Loop over the new dict with the aliases and tranfer the results
-        # into the infotable
-        for key, value in a_dict.items():
-            self._infotable[key][i_key] = value
-        
-        # Create subdirectory for output (log files, Excel files)
-        Path(OUTPUT_DIR).mkdir(exist_ok=True)
+    #     # Loop over the new dict with the aliases and tranfer the results
+    #     # into the infotable
+    #     for key, value in a_dict.items():
+    #         self._infotable[key][i_key] = value
 
-    def map_data(self,
-                  **kwargs,
-                 ):
-        """
-        Function to map sampleinfo or feature headers
+    # def map_data_obsolete(self,
+    #               **kwargs,
+    #              ):
+    #     """
+    #     Function to map sampleinfo or feature headers
 
-        """         
-        self._map('name', **kwargs)
+    #     """         
+    #     self._map('name', **kwargs)
 
-    def map_units(self,
-                  **kwargs,
-                 ):
-        """
-        Function to map units
+    # def map_units_obsolete(self,
+    #               **kwargs,
+    #              ):
+    #     """
+    #     Function to map units
 
-        """  
-        # If no match method was specified by the user, select 'regex'       
-        if ('match_method' not in kwargs):
-            kwargs['match_method'] = 'regex'
-        self._map('unit', **kwargs)
+    #     """  
+    #     # If no match method was specified by the user, select 'regex'       
+    #     if ('match_method' not in kwargs):
+    #         kwargs['match_method'] = 'regex'
+    #     self._map('unit', **kwargs)
 
     def read_data(self,
                   file_path,

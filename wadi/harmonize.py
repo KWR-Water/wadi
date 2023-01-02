@@ -26,13 +26,14 @@ class Harmonizer(WadiBaseClass):
     """
 
     def __init__(self,
-                 convert_units=False,
-                 target_units='mg/l', # str, immutable
-                 override_units=None,
-                #  convert_bds='halve', # str, immutable
-                 lt_symbol='<', # str, immutable
-                 drop_columns=None,
-                 merge_columns=None,
+                 parent,
+                #  convert_units=False,
+                #  target_units='mg/l', # str, immutable
+                #  override_units=None,
+                # #  convert_bds='halve', # str, immutable
+                #  lt_symbol='<', # str, immutable
+                #  drop_columns=None,
+                #  merge_columns=None,
                 ):
         """
         Parameters
@@ -41,6 +42,30 @@ class Harmonizer(WadiBaseClass):
 
         WadiBaseClass.__init__(self)
 
+        self.parent = parent
+        
+        self.convert_units = False
+        self.target_units = 'mg/l'
+        self.override_units = {}
+        self.drop_columns = []
+        self.merge_columns = []
+
+        self.ureg = UnitRegistry()
+        self.ureg.default_format = "~"
+
+        # self._bd_factor = BD_FACTORS[check_arg(convert_bds, BD_FACTORS.keys())]   
+        self._bd_RE = rf"(^\s*<\s*)"
+
+    # Defining __call__ method
+    def __call__(self,
+                 convert_units=False,
+                 target_units='mg/l', # str, immutable
+                 override_units=None,
+                 lt_symbol='<', # str, immutable
+                 drop_columns=None,
+                 merge_columns=None,
+                ):
+
         self.convert_units = convert_units
         self.target_units = target_units
         self.override_units = override_units or {}
@@ -48,11 +73,9 @@ class Harmonizer(WadiBaseClass):
         self.merge_columns = merge_columns or []
         check_if_nested_list(self.merge_columns)
 
-        self.ureg = UnitRegistry()
-        self.ureg.default_format = "~"
-
-        # self._bd_factor = BD_FACTORS[check_arg(convert_bds, BD_FACTORS.keys())]   
-        self._bd_RE = rf"(^\s*{lt_symbol}\s*)"
+        self._bd_RE = rf"(^\s*{lt_symbol}\s*)"    
+        
+        return self.harmonize()
 
     def _convert_values(self, v, uc_factor):
         """
@@ -94,6 +117,8 @@ class Harmonizer(WadiBaseClass):
     def _get_mw(self,
                 s,
                ):
+        """
+        """
         try:
             return mm.Formula(s).mass * self.ureg('g/mol')
         except FormulaError:
@@ -103,6 +128,8 @@ class Harmonizer(WadiBaseClass):
                   col,
                   s,
                  ):
+        """
+        """
         try:
             s_parts = s.partition('|') # split into three parts
             mw_formula = s_parts[2]
@@ -118,24 +145,22 @@ class Harmonizer(WadiBaseClass):
             return None, ''
 
     def harmonize(self,
-                  infotable,
-                  sampleids=None,
                  ):
         
         self._log("Harmonizing...")
 
-        if isinstance(sampleids, pd.DataFrame): # This is the case for stacked data only
-            index = sampleids.copy() # Create a copy just to be sure
-            index = pd.MultiIndex.from_frame(index).unique()
-        else:
-            index = sampleids
-
+        if (self.parent.format == 'stacked'):
+            sampleids = self.parent.df[self.parent._col_s].copy()
+            index = pd.MultiIndex.from_frame(sampleids).unique()
+        elif (self.parent.format == 'wide'):
+            index = None
         df = pd.DataFrame(index=index)
 
         column_header_dict = {}
         units_header_dict = {}
         # Iterate over items in infotable
-        for key, i_dict in infotable.items():
+        #for key, i_dict in infotable.items():
+        for key, i_dict in self.parent._infotable.items():
             # Do not process items that the user has indicated 
             # should be skipped
             if key in self.drop_columns:
@@ -148,6 +173,7 @@ class Harmonizer(WadiBaseClass):
             # Series share a common index, they are easily pieced
             # together at the end into a new DataFrame
             values = i_dict['values']
+            
             if ('sampleids' in i_dict): # For stacked data
                 if isinstance(i_dict['sampleids'], pd.DataFrame):
                     values = values.set_axis(pd.MultiIndex.from_frame(i_dict['sampleids']))
@@ -193,12 +219,13 @@ class Harmonizer(WadiBaseClass):
                 
                 values = values.apply(self._convert_values, 
                                       uc_factor=uc_factor)
-
+            
             if any(values.index.duplicated()):
                 for i in values.index:
                     print(i)
+
             df[key] = values
-            
+
             column_header_dict[key] = alias_n
             units_header_dict[key] = alias_u
       
@@ -216,5 +243,8 @@ class Harmonizer(WadiBaseClass):
 
         df.columns = [[column_header_dict[c] for c in df.columns],
                       [units_header_dict[c] for c in df.columns]]        
+
+        # Write the logged messages to the log file
+        self.update_log_file(f"{self.parent._log_fname}.log")
 
         return df

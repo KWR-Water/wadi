@@ -18,6 +18,7 @@ WADI - A python package for painless WAter Data Importing
     import_data.rst
     example_1.rst
     example_2.rst
+    API reference <api/modules.rst>
 
 Indices and tables
 ==================
