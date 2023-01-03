@@ -149,12 +149,7 @@ class Harmonizer(WadiBaseClass):
         
         self._log("Harmonizing...")
 
-        if (self.parent.format == 'stacked'):
-            sampleids = self.parent.df[self.parent._col_s].copy()
-            index = pd.MultiIndex.from_frame(sampleids).unique()
-        elif (self.parent.format == 'wide'):
-            index = None
-        df = pd.DataFrame(index=index)
+        df = pd.DataFrame(index=self.parent._infotable.target_index)
 
         column_header_dict = {}
         units_header_dict = {}

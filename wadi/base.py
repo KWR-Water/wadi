@@ -5,11 +5,10 @@ import warnings
 
 OUTPUT_DIR = "wadi_output"
 
-class WadiBaseClass(object):
+class WadiBaseClass:
     """
     Base class for WADI classes. Defines functions to provide functionality
     to log and print messages and warnings.
-
     """
 
     def __init__(self):

@@ -41,7 +41,7 @@ def dict2str(groupdict):
         rv += txt
     return rv
 
-class UnitRegexMapper(object):
+class UnitRegexMapper:
     def __init__(self, *args, func=dict2str):
         if args:
             self.RE = self._dict2RE(*args)

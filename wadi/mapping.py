@@ -9,7 +9,7 @@ import re
 
 from wadi.base import OUTPUT_DIR, WadiBaseClass
 from wadi.utils import StringList, check_arg_list, fuzzy_min_score
-from wadi.apis import query_pubchem_fuzzy, query_pubchem_cas, query_pubchem_synonyms
+from wadi.api_utils import query_pubchem_fuzzy, query_pubchem_cas, query_pubchem_synonyms
 from wadi.regex import UnitRegexMapper
 
 DEFAULT_STR2REPLACE = {'Ä': 'a', 'ä': 'a', 'Ë': 'e', 'ë': 'e',
