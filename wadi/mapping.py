@@ -7,7 +7,7 @@ import pandas as pd
 from pathlib import Path
 import re
 
-from wadi.base import OUTPUT_DIR, WadiBaseClass
+from wadi.base import WadiChildClass
 from wadi.utils import StringList, check_arg_list, fuzzy_min_score
 from wadi.api_utils import query_pubchem_fuzzy, query_pubchem_cas, query_pubchem_synonyms
 from wadi.regex import UnitRegexMapper
@@ -90,7 +90,8 @@ class MapperDict(UserDict):
 
         if (i == (max_attempts - 1)):
             raise ValueError("Translation failed. Try again later...")
-class Mapper(WadiBaseClass):
+
+class Mapper(WadiChildClass):
     """
     Class for mapping hydrochemical data
 
@@ -121,9 +122,8 @@ class Mapper(WadiBaseClass):
             dicts stored in the infotable.
         """
 
-        WadiBaseClass.__init__(self)
+        super().__init__(parent)
 
-        self.parent = parent
         self.s = s
 
         self.m_dict = None
@@ -222,7 +222,7 @@ class Mapper(WadiBaseClass):
         ----------
         """
 
-        self._log("Mapping...")
+        self._log(f"{self.s.capitalize()} mapping...")
         
         columns = self.parent._infotable.keys()
         strings = StringList(self.parent._infotable.list(self.s))
@@ -309,7 +309,7 @@ class Mapper(WadiBaseClass):
             df.loc[idx, 'match'] = ''
 
         # Write the DataFrame with the mapping summary to an Excel file
-        xl_fname = Path(OUTPUT_DIR, f"{self.s}_mapping_results_{self.parent._log_fname.stem}.xlsx")
+        xl_fname = Path(self.parent.output_dir, f"{self.s}_mapping_results_{self.parent.log_fname.stem}.xlsx")
         sheet_name = f"{self.s.capitalize()}s"
         # self._df2excel(fname,
         #     f"{self.s.capitalize()}s")
@@ -332,7 +332,7 @@ class Mapper(WadiBaseClass):
             self.parent._infotable[key][i_key] = value
 
         # Write the logged messages to the log file
-        self.update_log_file(f"{self.parent._log_fname}.log")
+        self.update_log_file()
 
     # def _df2excel(self,
     #              xl_fname,

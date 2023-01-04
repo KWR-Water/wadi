@@ -4,7 +4,7 @@ import pandas as pd
 from pint import UnitRegistry
 from pint.errors import DimensionalityError, UndefinedUnitError
 import re
-from wadi.base import WadiBaseClass
+from wadi.base import WadiChildClass
 from wadi.utils import check_if_nested_list
 
 # Suppress performance warnings for that occur during harmonize because
@@ -15,7 +15,7 @@ warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 BD_FACTORS = {'delete': 0, 'halve': 0.5}
 # VALID_DUPLICATE_COLS_OPTIONS = ['keep_first', 'keep_all']
 
-class Harmonizer(WadiBaseClass):
+class Harmonizer(WadiChildClass):
     """
     Class for harmonizing 
 
@@ -40,9 +40,7 @@ class Harmonizer(WadiBaseClass):
         ----------
         """
 
-        WadiBaseClass.__init__(self)
-
-        self.parent = parent
+        super().__init__(parent)
         
         self.convert_units = False
         self.target_units = 'mg/l'
@@ -240,6 +238,6 @@ class Harmonizer(WadiBaseClass):
                       [units_header_dict[c] for c in df.columns]]        
 
         # Write the logged messages to the log file
-        self.update_log_file(f"{self.parent._log_fname}.log")
+        self.update_log_file()
 
         return df

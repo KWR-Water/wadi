@@ -3,27 +3,36 @@ import os
 from pathlib import Path
 import warnings
 
-OUTPUT_DIR = "wadi_output"
-
-class WadiBaseClass:
+class WadiParentClass:
     """
-    Base class for WADI classes. Defines functions to provide functionality
-    to log and print messages and warnings.
+    Base class for WADI Importer class and its children. 
+    Defines functions to provide functionality to log and
+    print messages and warnings.
     """
 
-    def __init__(self):
-        self._log_str = ""
-        self._log_fname = ""
+    def __init__(self,
+        log_fname,
+        output_dir,
+        create_file=False,
+        ):
+        
+        self.log_fname = Path(log_fname)
+        self.output_dir = Path(output_dir).resolve()
 
         # Create subdirectory for output (log files, Excel files)
-        Path(OUTPUT_DIR).mkdir(exist_ok=True)
-    
+        self.output_dir.mkdir(exist_ok=True)
+
+        self._log_str = ""
+        if (create_file):
+            self._log("WADI log file", timestamp=True)
+            self.update_log_file(mode='w')
+
     def _remove_log_file(self):
         """
         Attempts to delete the log file
         """
         try:
-            os.remove(self._log_fname)
+            os.remove(self.log_fname)
         except OSError:
             pass
     
@@ -84,7 +93,6 @@ class WadiBaseClass:
         self._log_str += f"Warning: {s}\n"
 
     def update_log_file(self,
-                        fname,
                         mode='a',
                         ):
         """
@@ -92,8 +100,6 @@ class WadiBaseClass:
 
         Parameters
         ----------
-            fname: str
-                Name of the log file
             mode: str
                 Python file mode for opening the file. Default is 'a',
                 which means that the log file string will be appended 
@@ -101,9 +107,26 @@ class WadiBaseClass:
         """
 
         try:
-            with open(fname, mode) as f:
+            with open(self.log_fname, mode) as f:
                 ascii_str = self._log_str.encode('ascii', 'ignore').decode()
                 f.write(ascii_str)
             self._log_str = ""
         except FileNotFoundError:
-            self._warn(f"Log file {fname} could not be created.")
+            self._warn(f"Log file {self.log_fname} could not be created.")
+
+class WadiChildClass(WadiParentClass):
+    """
+    Base class for children of the WADI Importer class. Has the
+    same functionality but adds the parent attribute. The __init__
+    function is designed to ensure that the class instance has the
+    same log_fname and output_dir as the Importer class.
+    """
+
+    def __init__(self,
+                 parent,
+                ):
+        
+        super().__init__(parent.log_fname,
+                         parent.output_dir)
+        
+        self.parent = parent

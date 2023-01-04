@@ -1,7 +1,7 @@
 import copy
 import pandas as pd
 
-from wadi.base import WadiBaseClass
+from wadi.base import WadiChildClass
 from wadi.infotable import InfoTable
 from wadi.utils import check_arg, valid_kwargs
 
@@ -35,7 +35,7 @@ DEFAULT_NA_VALUES = ['',
                     'nan', 
                     '-nan']
 
-class Reader(WadiBaseClass):
+class Reader(WadiChildClass):
     """
     Class for reading Excel files for WADI
 
@@ -51,9 +51,7 @@ class Reader(WadiBaseClass):
         """
         """
 
-        WadiBaseClass.__init__(self)
-
-        self.parent = parent
+        super().__init__(parent)
 
     def __call__(self,
                  file_path,
@@ -142,7 +140,7 @@ class Reader(WadiBaseClass):
 
         # Write the log string to the log file (note that mode is 'w',
         # because at this point the log file is created for the first time)
-        self.update_log_file(f"{self._log_fname}.log", 'w')
+        self.update_log_file()
 
         return df, units, datatypes
 

@@ -1,10 +1,12 @@
 from pathlib import Path
-from wadi.base import OUTPUT_DIR, WadiBaseClass
+from wadi.base import WadiParentClass
 from wadi.harmonize import Harmonizer
 from wadi.mapping import Mapper
 from wadi.reader import Reader
 
-class Importer(WadiBaseClass):
+DEFAULT_OUTPUT_DIR = "wadi_output"
+
+class Importer(WadiParentClass):
     """
     Class for importing hydrochemical data in a variety of formats
 
@@ -17,7 +19,10 @@ class Importer(WadiBaseClass):
     wi.read_data('chem_data.xlsx')
     """
 
-    def __init__(self):
+    def __init__(self,
+        log_fname="wadi.log",
+        output_dir=DEFAULT_OUTPUT_DIR,
+        ):
         """
         Class initialization method
 
@@ -26,12 +31,8 @@ class Importer(WadiBaseClass):
         """
 
         # Call the ancestors initialization method
-        WadiBaseClass.__init__(self)
+        super().__init__(log_fname, output_dir, create_file=True)
         
-        # Infer log file name from file_path
-        self._log_fname = Path(OUTPUT_DIR, "wadi.log")
-        self._log("WADI log file", timestamp=True)
-
         # Define placeholder for the DataFrame that will contain the data
         self.df = None
 
