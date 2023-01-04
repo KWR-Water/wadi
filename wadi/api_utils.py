@@ -68,15 +68,19 @@ def query_pubchem_fuzzy(s):
     if (js is None):
         return None
     if (js['total'] > 0):
-        return (js['dictionary_terms']['compound'][0])
+        compound = js['dictionary_terms']['compound'][0]
+        synonym = query_pubchem_synonyms(compound)
+        if isinstance(synonym, list):
+            synonym = synonym[0].get('Synonym')[0]
+        return [compound, synonym]
     else:
-        return None
+        return [None, None]
 
 def query_pubchem_synonyms(s, namespace='name'):
     url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/{namespace}/{s}/synonyms/json"
     js = get_json(url)
     if (js is None):
-        return []
+        return None
     return js['InformationList']['Information']
 
 def query_pubchem_cas(s, namespace='name', allow_multiple=False):
@@ -107,5 +111,5 @@ def get_pubchem_properties(cids, props):
     url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{','.join(cids_str)}/property/{','.join(props)}/json"
     js = get_json(url)
     if (js is None):
-        return []
+        return None
     return js['PropertyTable']['Properties']

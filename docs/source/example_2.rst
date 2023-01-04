@@ -22,7 +22,7 @@ spreadsheet data are in 'wide' format.
 
     import wadi as wd
 
-    wi = wd.Importer(format='wide',
+    wi = wd.Converter(
                     )
 
 Step 2: Read the data
@@ -67,7 +67,8 @@ inspecting the contents of the spreadsheet file.
     df2_kwargs = {'skiprows': rows2skip, 'usecols': "AG", 'datatype': 'sampleinfo'}
 
     wi.read_data(file_path='example_2.xlsx',
-                panes=[df0_kwargs, df1_kwargs, df2_kwargs])
+                 format='wide',
+                 panes=[df0_kwargs, df1_kwargs, df2_kwargs])
 
 Once the data have been read, the contents of the DataFrame that was imported
 can be inspected. Note how Pandas has automatically numbered the second column

@@ -37,13 +37,7 @@ next step to read the data from the spreadsheet file.
 
     import wadi as wd
 
-    wi = wd.Importer(format='stacked',
-                    c_dict={'SampleId': 'Monster',
-                            'Features': 'Parameter omschrijving',
-                            'Units': 'Eenheid omschrijving',
-                            'Values': 'Berekende gerapporteerde waarde',
-                            },
-                    )
+    wi = wd.Converter()
 
 Step 2: Read the data
 ==========================================
@@ -62,6 +56,12 @@ guaranteed to work).
     :okwarning:
 
     wi.read_data('example_1.xlsx',
+                 format='stacked',
+                 c_dict={'SampleId': 'Monster',
+                         'Features': 'Parameter omschrijving',
+                         'Units': 'Eenheid omschrijving',
+                         'Values': 'Berekende gerapporteerde waarde',
+                        },
                 )
 Once the data have been read, the contents of the DataFrame that was imported
 can be inspected

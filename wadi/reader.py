@@ -37,7 +37,7 @@ DEFAULT_NA_VALUES = ['',
 
 class Reader(WadiChildClass):
     """
-    Class for reading Excel files for WADI
+    Class for reading files for WADI.
 
     Examples
     --------
@@ -46,12 +46,12 @@ class Reader(WadiChildClass):
     """
 
     def __init__(self,
-                 parent,
+                 converter,
                 ):
         """
         """
 
-        super().__init__(parent)
+        super().__init__(converter)
 
     def __call__(self,
                  file_path,
@@ -95,9 +95,9 @@ class Reader(WadiChildClass):
 
         # Create the dictionary that stores views to the data read as well as
         # additional information (units, data type)
-        self.parent.df = df
-        self.parent._infotable = InfoTable(df, format, c_dict, units, datatypes)
-        self._log(self.parent._infotable)
+        self.converter.df = df
+        self.converter._infotable = InfoTable(df, format, c_dict, units, datatypes)
+        self._log(self.converter._infotable)
 
     def _read_data(self,
                   **kwargs):

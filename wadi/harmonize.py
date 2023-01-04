@@ -1,9 +1,10 @@
+import pandas as pd
+import re
+
 import molmass as mm
 from molmass.molmass import FormulaError
-import pandas as pd
 from pint import UnitRegistry
 from pint.errors import DimensionalityError, UndefinedUnitError
-import re
 from wadi.base import WadiChildClass
 from wadi.utils import check_if_nested_list
 
@@ -26,7 +27,7 @@ class Harmonizer(WadiChildClass):
     """
 
     def __init__(self,
-                 parent,
+                 converter,
                 #  convert_units=False,
                 #  target_units='mg/l', # str, immutable
                 #  override_units=None,
@@ -40,7 +41,7 @@ class Harmonizer(WadiChildClass):
         ----------
         """
 
-        super().__init__(parent)
+        super().__init__(converter)
         
         self.convert_units = False
         self.target_units = 'mg/l'
@@ -142,18 +143,17 @@ class Harmonizer(WadiChildClass):
             self._log(f" * Failed to parse unit '{s}' with pint for {col}")
             return None, ''
 
-    def harmonize(self,
-                 ):
+    def harmonize(self):
         
         self._log("Harmonizing...")
 
-        df = pd.DataFrame(index=self.parent._infotable.target_index)
+        df = pd.DataFrame(index=self.converter._infotable.target_index)
 
         column_header_dict = {}
         units_header_dict = {}
         # Iterate over items in infotable
         #for key, i_dict in infotable.items():
-        for key, i_dict in self.parent._infotable.items():
+        for key, i_dict in self.converter._infotable.items():
             # Do not process items that the user has indicated 
             # should be skipped
             if key in self.drop_columns:
