@@ -37,7 +37,7 @@ next step to read the data from the spreadsheet file.
 
     import wadi as wd
 
-    wi = wd.Converter()
+    wi = wd.Converter(log_fname='example_1.log')
 
 Step 2: Read the data
 ==========================================

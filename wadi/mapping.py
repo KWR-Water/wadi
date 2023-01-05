@@ -251,8 +251,9 @@ class Mapper(WadiChildClass):
             scorer=fwf.token_sort_ratio,
             score_cutoff=fuzzy_min_score(s),
         )
+        tuple2str = lambda t: f"{t[0]} (score: {t[1]}%)"
         scores = [fuzzy_score(s) for s in strings]
-        return [[s, m_dict.get(s[0])] if s else [None, None] for s in scores]
+        return [[tuple2str(s), m_dict.get(s[0])] if s else [None, None] for s in scores]
 
     def _match_pubchem(self, strings):
         return [query_pubchem_fuzzy(s) for s in strings]

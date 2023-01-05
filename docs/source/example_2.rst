@@ -22,8 +22,7 @@ spreadsheet data are in 'wide' format.
 
     import wadi as wd
 
-    wi = wd.Converter(
-                    )
+    wi = wd.Converter(log_fname='example_2.log')
 
 Step 2: Read the data
 ==========================================
