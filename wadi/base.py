@@ -4,10 +4,9 @@ import os
 from pathlib import Path
 import warnings
 
-
 class WadiParentClass:
     """
-    Base class for WADI Importer class and its children.
+    Base class for WADI DataObject class and its children.
     Defines functions to provide functionality to log and
     print messages and warnings.
     """
@@ -31,7 +30,7 @@ class WadiParentClass:
             Flag to indicate if the log file must be created. Must be
             explicitly set to True when an object of this class is
             initialized for the first time. In WaDI this happens in
-            the init method of Converter.
+            the init method of DataObject.
         """
 
         # Convert output_dir to a Path object and get the absolute
@@ -74,28 +73,38 @@ class WadiParentClass:
         self,
         s,
         timestamp=False,
+        header=False,
     ):
         """
         Appends a new line to the log file string.
 
         Parameters
         ----------
-            s: str
+            s : str
                 Text string to be written to log file.
             timestamp: bool
                 If True the text string is followed by the current time
                 between parentheses. No timestamp is appended when False.
+            header: bool
+                If True leading and trailing carriage returns and a
+                banner will be added to the text string.
         """
+        if header:
+            self._log_str += f"\n{'=' * len(s)}\n"
 
         if timestamp:
             ts = dt.now().strftime("%d/%m/%Y %H:%M:%S")
             self._log_str += f"{s} ({ts})\n"
         else:
             self._log_str += f"{s}\n"
+        
+        if header:
+            self._log_str += f"{'=' * len(s)}\n\n"
 
     def _msg(
         self,
         s,
+        **kwargs,
     ):
         """
         Prints a message to the screen and appends it as a new line to the
@@ -103,13 +112,15 @@ class WadiParentClass:
 
         Parameters
         ----------
-            s: str
+            s : str
                 Text string to be printed to the screen and written to
                 the log file.
+            **kwargs : dict, optional
+                Any keyword argumetns to be passed onto _log_str.
         """
 
         print(s)
-        self._log_str += f"{s}\n"
+        self._log(s, **kwargs)
 
     def _warn(
         self,
@@ -121,7 +132,7 @@ class WadiParentClass:
 
         Parameters
         ----------
-            s: str
+            s : str
                 Text string to be passed to the UserWarning and written to
                 the log file.
         """
@@ -138,7 +149,7 @@ class WadiParentClass:
 
         Parameters
         ----------
-            mode: str
+            mode : str
                 Python file mode for opening the file. Default is 'a',
                 which means that the log file string will be appended
                 to the log file.
@@ -158,11 +169,11 @@ class WadiParentClass:
 
 class WadiChildClass(WadiParentClass):
     """
-    Base class for children of the WADI Converter class. Has the
+    Base class for children of the WADI DataObjecttt class. Has the
     same functionality as WadiParentClass but adds the converter
     attribute. The __init__ function is designed to ensure that
     the class instance has the same log_fname and output_dir as
-    the Converter class instance to which the object belongs.
+    the DataObjectt class instance to which the object belongs.
     """
 
     def __init__(
@@ -172,7 +183,7 @@ class WadiChildClass(WadiParentClass):
 
         # Call the ancestor init function to set the log_fname
         # and output_dir attributes to be the same as for the
-        # Converter class instance to which the object belongs
+        # DataObject class instance to which the object belongs
         super().__init__(converter.log_fname, converter.output_dir)
 
         self.converter = converter

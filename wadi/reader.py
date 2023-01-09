@@ -40,12 +40,7 @@ DEFAULT_NA_VALUES = [
 
 class Reader(WadiChildClass):
     """
-    Class for reading files for WADI.
-
-    Examples
-    --------
-
-    TBC::
+    WaDI class for reading files.
     """
 
     def __init__(
@@ -150,21 +145,21 @@ class Reader(WadiChildClass):
         if "na_values" not in pd_kwargs:
             pd_kwargs["na_values"] = DEFAULT_NA_VALUES
 
-        # Check if the user specified the 'panes' kwarg, which
+        # Check if the user specified the 'blocks' kwarg, which
         # means that multiple dataframes must be read and joined
-        if "panes" not in kwargs:
-            # If panes is not in kwargs then store the kwargs in a
+        if "blocks" not in kwargs:
+            # If blocks is not in kwargs then store the kwargs in a
             # one-element list
-            panes = [kwargs]
+            blocks = [kwargs]
         else:
-            # If panes is in kwargs then check if it's a sequence
+            # If blocks is in kwargs then check if it's a sequence
             # before continuing
-            panes = kwargs["panes"]
-            if not isinstance(panes, (list, tuple)):
-                raise ValueError("Argument 'panes' must be a list or a tuple")
+            blocks = kwargs["blocks"]
+            if not isinstance(blocks, (list, tuple)):
+                raise ValueError("Argument 'blocks' must be a list or a tuple")
 
-        # Loop over the panes to perform some checks for inconsistent kwargs
-        for pd_kwargs in panes:
+        # Loop over the blocks to perform some checks for inconsistent kwargs
+        for pd_kwargs in blocks:
             # For stacked data the units and datatype are inferred
             # from c_dict when the InfoTable is created
             if (self.format == "stacked") & ("units_row" in pd_kwargs):
@@ -177,7 +172,7 @@ class Reader(WadiChildClass):
                 self._warn("Argument 'datatype' is ignored when format is 'stacked'.")
 
         # Call _read_file to import the data into a single DataFrame
-        df, units, datatypes = self._read_file(self.file_path, self.pd_reader, panes)
+        df, units, datatypes = self._read_file(self.file_path, self.pd_reader, blocks)
 
         # Write the log string to the log file
         self.update_log_file()
@@ -188,7 +183,7 @@ class Reader(WadiChildClass):
         self,
         file_path,
         pd_reader_name,
-        panes,
+        blocks,
     ):
         """
         Function that calls the specified Pandas reader function to
@@ -200,7 +195,7 @@ class Reader(WadiChildClass):
             The file to be read.
         pd_reader_name : str
             Name of the Pandas function to read the file.
-        panes : list
+        blocks : list
             List with keyword arguments that specify (i) the number
             of the row with the units, (ii) the datatpe and (iii) any
             kwargs for the pd_reader function.
@@ -217,7 +212,7 @@ class Reader(WadiChildClass):
         Raises
         ------
         ValueError
-            When index_col is a kwarg in one of the panes.
+            When index_col is a kwarg in one of the blocks.
 
         Notes
         ----------
@@ -228,7 +223,7 @@ class Reader(WadiChildClass):
 
         # Inform user with message on screen that reading has started (may
         # take a long time for large files)
-        self._msg(f"Reading data...")
+        self._msg(f"Reading data", header=True)
         self._log(f"* Reading file {file_path} with the following Pandas call(s):")
 
         # Get reference to pandas reader function and determine its valid
@@ -240,7 +235,7 @@ class Reader(WadiChildClass):
         units = []
         datatypes = []
         # Loop over the sets of kwargs in the pane(s)
-        for pd_kwargs in panes:
+        for pd_kwargs in blocks:
             # Set values for unit_row and datatype, these may be 
             # overridden if the user specified a kwarg for any 
             # of them

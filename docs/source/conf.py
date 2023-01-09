@@ -1,4 +1,3 @@
-import sphinx_rtd_theme
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -18,7 +17,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'WADI'
+project = 'WaDI'
 copyright = '2022, Vincent Post, Martin van der Schans, Martin Korevaar'
 author = 'Vincent Post, Martin van der Schans, Martin Korevaar'
 
@@ -38,6 +37,7 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.autodoc',
     'sphinx_rtd_theme'
+    #'pydata_sphinx_theme'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -54,9 +54,31 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
+
+import sphinx_rtd_theme
+#import pydata_sphinx_theme
+
 html_theme = "sphinx_rtd_theme"
+#html_theme = 'pydata_sphinx_theme'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+# -- Additions by VP ---------------------------------------------------------
+
+exclude_patterns = ['index_for_pydata_sphinx_theme.rst']
+
+autodoc_default_options = {
+    'members': True,
+    'member-order': 'bysource',
+    'special-members': '__init__, __call__',
+    'undoc-members': True,
+    'exclude-members': '_abc_impl'
+}
+
+html_theme_options = {
+    'collapse_navigation': False,
+    'sticky_navigation': False,
+}

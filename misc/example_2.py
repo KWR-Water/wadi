@@ -3,7 +3,7 @@ os.chdir('D:\\Users\\postvi\\Documents\\github\\wadi')
 
 import wadi as wd
 
-wi = wd.Importer(format='wide',
+wi = wd.DataObject(format='wide',
                 )
 
 rows2skip = list(range(9)) + [22, 23] + list(range(25, 35))
@@ -31,7 +31,7 @@ feature_dict = wd.MapperDict({'Phosphate': 'PO4',
                                 'Arsenic': 'As',
                                 })
 
-wi.map_data(m_dict=feature_dict,
+wi.map_names(m_dict=feature_dict,
             match_method=['exact', 'fuzzy'],
             )
 

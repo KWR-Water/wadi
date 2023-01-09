@@ -12,14 +12,18 @@ DICT_KEYS = ['name',
 class InfoTable(UserDict):
     """
     Nested dictionary that stores information about the imported data.
+    Note that the keys of the level-0 dictionary are referred to as
+    key_0. The level-1 dictionaries is referred to as dict_1 and 
+    their keys as key_1.
+    
     Each dict in the InfoTable will contain the following items:
-     - 'name': the name of the feature
-     - 'unit': the feature's units
-     - 'sampleids' (only for stacked data): the sample identifiers
-     - 'values': a view to the (concentration) values in self.df
-     - 'datatype': to indicate if the data are for a feature or sampleinfo
-     - alias_n: the name alias
-     - alias_u: the unit alias
+     * name: the name of the feature
+     * unit: the feature's units
+     * sampleids (only for stacked data): the sample identifiers
+     * values: a view to the (concentration) values in self.df
+     * datatype: to indicate if the data are for a feature or sampleinfo
+     * alias_n: the name alias
+     * alias_u: the unit alias
     """
 
     def __init__(self,
@@ -36,7 +40,7 @@ class InfoTable(UserDict):
         Parameters
         ----------
         df : DataFrame
-            The DataFrame of the Converter class instance
+            The DataFrame of the DataObject class instance
         format : str
             The format of the data. Must be in VALID_FORMATS defined
             in reader.py.
@@ -72,7 +76,7 @@ class InfoTable(UserDict):
                 col_s = [col_s]
 
         # Populate the InfoTable depending on the data format
-        j_dict = {}
+        dict_0 = {}
         if (format == 'stacked'):
             # Find the unique combinations of features + units in the DataFrame
             ufus = (df[col_f] + df[col_u]).dropna().unique()
@@ -81,31 +85,31 @@ class InfoTable(UserDict):
                 idx = (df[col_f] + df[col_u] == fu)
                 # Set the key in the infotable to the first element in the
                 # feature name column (all values in the column will be equal)
-                key = df.loc[idx, col_f].iloc[0]
+                key_0 = df.loc[idx, col_f].iloc[0]
                 # Define the dictionary with the required data
-                i_dict = {'name': key,
+                dict_1 = {'name': key_0,
                           'unit': df.loc[idx, col_u].iloc[0], 
                           'sampleids': df.loc[idx, col_s],
                           'values': df.loc[idx, col_v],
                           'datatype': 'feature'}
-                # Add i_dict to the info_table
-                j_dict[key] = i_dict
+                # Add dict_1 to the info_table
+                dict_0[key_0] = dict_1
         elif (format == 'wide'):
             # Iterate over the columns in the DataFrame
-            for i, key in enumerate(df.columns):
+            for i, key_0 in enumerate(df.columns):
                 # Pandas adds a dot followed by a number for duplicate columns
                 # so to get the real feature name, it must be removed
-                col_name = key
+                col_name = key_0
                 duplicate_nr = re.search('\.\d+$', col_name)
                 if duplicate_nr:
                     col_name = col_name.removesuffix(duplicate_nr.group()) # Requires Python 3.9 or later
                 # Define the dictionary with the required data
-                i_dict = {'name': col_name,
+                dict_1 = {'name': col_name,
                           'unit': units[i], 
-                          'values': df[key],
+                          'values': df[key_0],
                           'datatype': datatypes[i]}
-                # Add i_dict to the info_table
-                j_dict[key] = i_dict
+                # Add dict_1 to the info_table
+                dict_0[key_0] = dict_1
 
         # The harmonize method of Harmonizer needs target_index for
         # the DataFrame it will create.
@@ -117,7 +121,7 @@ class InfoTable(UserDict):
 
         # Call the ancestor init method to initiliaze the class with
         # the dictionary just created.
-        super().__init__(j_dict)
+        super().__init__(dict_0)
 
     def __setitem__(self, key, value):
         """
@@ -146,6 +150,9 @@ class InfoTable(UserDict):
         # even if mapping does not result in any match.
         value['alias_n'] = value['name']
         value['alias_u'] = value['unit']
+        value['q'] = None
+        value['mw'] = None
+        
         # Assign 'value' to element 'key'.
         self.data[key] = value
 
@@ -182,9 +189,9 @@ class InfoTable(UserDict):
         for datatype in ['sampleinfo', 'feature']:
             s = ""
             rv += f"The following {datatype} data were imported:\n"
-            for key, value in self.data.items():
-                if value['datatype'] == datatype:
-                    s += f"  * name: {key}, unit: {value['unit']}\n"
+            for key_0, dict_1 in self.data.items():
+                if dict_1['datatype'] == datatype:
+                    s += f" * name: {key_0}, unit: {dict_1['unit']}\n"
             if len(s):
                 rv += s
             else:

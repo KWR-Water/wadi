@@ -1,11 +1,16 @@
 from collections import UserDict
-import fuzzywuzzy.fuzz as fwf
-import fuzzywuzzy.process as fwp
 import json
 import numpy as np
 import pandas as pd
 from pathlib import Path
 import re
+
+import fuzzywuzzy.process as fwp
+
+import molmass as mm
+from molmass.molmass import FormulaError
+from pint import UnitRegistry
+from pint.errors import DimensionalityError, UndefinedUnitError
 
 from wadi.base import WadiChildClass
 from wadi.utils import StringList, check_arg_list, fuzzy_min_score
@@ -125,21 +130,16 @@ class MapperDict(UserDict):
         if i == (max_attempts - 1):
             raise ValueError("Translation failed. Try again later...")
 
-
 class Mapper(WadiChildClass):
     """
-    Class for mapping hydrochemical data
-
-    Examples
-    --------
-
-    TBC::
+    WaDI class that implements the operations to map feature names
+    and units to alternate values.
     """
 
     def __init__(
         self,
         converter,
-        s,
+        i_key,
         #  m_dict=None,
         #  match_method=None,
         #  minscores=None,
@@ -152,19 +152,20 @@ class Mapper(WadiChildClass):
         """
         Parameters
         ----------
-        s : str
-            The value of s is either 'name' (when called by map_data) or
-            'unit' (when called by map_units), which are valid keys for the
-            dicts stored in the infotable.
+        i_key : str
+            The value of i_key is either 'name' (when called by 
+            map_names) or 'unit' (when called by map_units), which
+            are valid keys for the dict elements in the InfoTable.
         """
 
         super().__init__(converter)
 
-        self.s = s
-        self.xl_fname = Path(
+        self.i_key = i_key
+        self.xl_fpath = Path(
             self.converter.output_dir,
-            f"{s}_mapping_results_{self.converter.log_fname.stem}.xlsx",
+            f"mapping_results_{self.converter.log_fname.stem}.xlsx",
         )
+        self.sheet_name = f"{i_key.capitalize()}s"
 
         self.m_dict = None
         self.match_method = ["exact"]
@@ -173,6 +174,9 @@ class Mapper(WadiChildClass):
         self.replace_strings = DEFAULT_STR2REPLACE
         self.remove_strings = DEFAULT_STR2REMOVE
         self.allow_empty_aliases = False
+
+        self.ureg = UnitRegistry()
+        self.ureg.default_format = "~"
 
         # self.df = {}
 
@@ -187,9 +191,9 @@ class Mapper(WadiChildClass):
         allow_empty_aliases=False,
     ):
 
-        if self.s == "name":
+        if self.i_key == "name":
             self.match_method = match_method or ["exact"]
-        elif self.s == "unit":
+        elif self.i_key == "unit":
             self.match_method = match_method or ["regex"]
         self.match_method = check_arg_list(self.match_method, VALID_METHODS)
 
@@ -204,12 +208,28 @@ class Mapper(WadiChildClass):
         self.remove_strings = remove_strings or DEFAULT_STR2REMOVE
         self.allow_empty_aliases = allow_empty_aliases
 
+        # Create an ExcelWriter instance that will append a sheet
+        # if the file already exists (for example when units are
+        # mapped after names) or create the file when it does not
+        # yet exist (when mapping is performed for the first time).
+        # Any sheets in an already-existing file will get overwritten
+        # through the use of if_sheet_exists='replace' 
+        if self.xl_fpath.is_file():
+            self.xl_writer = pd.ExcelWriter(self.xl_fpath,
+                mode='a',
+                if_sheet_exists='replace',
+            )
+        else:
+            self.xl_writer = pd.ExcelWriter(self.xl_fpath,
+                mode='w',
+            )
+
         # Call the match method. Passes the keys of the infotable along with
         # a list of strings which contains either the 'name' or 'unit' values
         # of all the items in infotable
         self._match(
             # self._infotable.keys(),
-            # self._infotable.list(self.s),
+            # self._infotable.list(self.i_key),
         )
 
         # # Write the DataFrame with the mapping summary to an Excel file
@@ -230,6 +250,99 @@ class Mapper(WadiChildClass):
         # for key, value in a_dict.items():
         #     self._infotable[key][i_key] = value
 
+    def _get_mw(
+        self,
+        s,
+    ):
+        """
+        This function uses the molmass library to determine the
+        molar mass of a substance.
+
+        Parameters
+        ----------
+        s : str
+            Name of the substance.
+
+        Returns
+        ----------
+        result : Pint Quantity object
+            The molar mass in g/mole, or None if  a FormulaError
+            was raised from within the molmass library.
+        """
+        try:
+            return mm.Formula(s).mass * self.ureg("g/mol")
+        except FormulaError:
+            return None
+
+    def _str2pint(
+        self,
+        s,
+        name,
+    ):
+        """
+        This function parses the three-part string that is created by
+        _match_regex when the units are mapped using a regular
+        expression.
+
+        Parameters
+        ----------
+        s : str
+            String to be parsed.
+        name : str
+            The feature name. Also serves as an alternative string 
+            to determine the molar mass if Pint fails to parse s.
+
+        Returns
+        ----------
+        uq : Pint Quantity object
+            The units represented as Pint Quantity object.
+        mw : Pint Quantity object
+            The molecular mass of the substance.
+
+        Notes
+        ----------
+        The function uses the partition function to split the
+        string at the | symbol into a three-part tuple that
+        contains (i) the part before the separator, (ii) the
+        separator itself (redundant, not used), and (iii) the
+        part after the separator.
+        The part after the | symbol may or may not contain the
+        formula for the molecular mass, depending on the format
+        for the units in the input file. In that case name of
+        the feature (passed to the function as 'name') is
+        used as the formula to determine the molecular mass.
+        Both the units and the molecular mass are converted to a
+        Pint Quantity object (i.e., the product of a unit and
+        a magnitude).
+        """
+        try:
+            # Use the partition to split the string at the | symbol.
+            s_parts = s.partition("|")
+            # Store the substance formula in mw_formula.
+            mw_formula = s_parts[2]
+            # If no formula was specified the length of mw_formula
+            # will be zero and in that case 'name' will be 
+            # used instead to look up the molecular mass.
+            if not len(mw_formula):
+                mw_formula = name
+            # Get the molecular mass using _get_mw
+            mw = self._get_mw(mw_formula)
+            # Convert the units string to a Pint Quantity object
+            uq = self.ureg.Quantity(s_parts[0])
+            # Write a message to the log file
+            self._log(f" * Successfully parsed unit '{s}' with pint for {name}")
+            if mw is not None:
+                self._log(f"   - molar mass: {mw}")
+            else:
+                self._log(f"   - molar mass for {name} could not be determined.")
+
+            return uq, mw
+        except (AttributeError, TypeError, UndefinedUnitError, ValueError):
+            # When an error occurs, write a message to the log file and
+            # return empty return values.
+            self._log(f" * Failed to parse unit '{s}' with pint for {name}")
+            return None, None
+
     def _default_m_dict(self, strings):
         return {k: k for k in dict.fromkeys(strings)}
 
@@ -240,7 +353,7 @@ class Mapper(WadiChildClass):
         regex_match = re.compile(self.regex_map.RE)
         matches = [regex_match.match(s) for s in strings]
         return [
-            [None, self.regex_map.str(m.groupdict())] if m else [None, None]
+            [self.regex_map.str(m.groupdict()), None] if m else [None, None]
             for m in matches
         ]
 
@@ -264,15 +377,12 @@ class Mapper(WadiChildClass):
         #   strings,
     ):
         """
-
-        Parameters
-        ----------
         """
 
-        self._log(f"{self.s.capitalize()} mapping...")
+        self._log(f"{self.i_key.capitalize()} mapping", header=True)
 
         columns = self.converter._infotable.keys()
-        strings = StringList(self.converter._infotable.list(self.s))
+        strings = StringList(self.converter._infotable.list(self.i_key))
         # try:
         #     columns = self.parent._infotable.keys()
         #     strings = StringList(self.parent._infotable.list(self.s))
@@ -286,6 +396,7 @@ class Mapper(WadiChildClass):
 
         strings.replace_strings(self.replace_strings)
         strings.replace_strings({k: "" for k in self.remove_strings})
+        strings.strip() # Remove any leading or trailing whitespace
         df["modified"] = strings
 
         # Check if 'ascii' or 'fuzzy' were passed
@@ -347,44 +458,62 @@ class Mapper(WadiChildClass):
                 # Update the main df with the values in dfsub
                 df.update(dfsub)
 
-                self._log(f" * Match method {m} found the following matches:")
+                self._log(f" * Match method '{m}' yielded the following aliases:")
                 for name, alias in zip(dfsub["name"], dfsub["alias"]):
                     if alias is not None:
                         self._log(f"   - {name}: {alias}")
 
             except NotImplementedError:
                 raise NotImplementedError(f"Match method '{m}' not implemented")
+        
+        if (self.i_key == 'unit'):
+            for key_0, u_str in df.set_index("header")["found"].items():
+                # Try to parse the unit string with Pint. Returns the
+                # Pint Quantity objects q (for the units) and mw (for
+                # the molar mass) to be used for unit conversion.
+                q, mw = self._str2pint(u_str, key_0)
+                if q is not None:
+                    self.converter._infotable[key_0]['alias_u'] = f"{q.units:~P}"
+                    self.converter._infotable[key_0]['q'] = q        
+                    self.converter._infotable[key_0]['mw'] = mw
 
         if not self.allow_empty_aliases:
             idx = df["alias"].isnull()
-            df.loc[idx, "alias"] = df.loc[idx, "modified"].array
             df.loc[idx, "found"] = ""
-
+            df.loc[idx, "alias"] = df.loc[idx, "modified"].array
+            
+        # Transfer the aliases found to the DataObject's 
+        # InfoTable by iterating over the 'alias' column. Setting
+        # the 'header' column as the index ensures that the keys
+        # match up with the level-0 keys of the InfoTable.
+        # The key (key_1) will be either alias_n or alias_u
+        key_1 = f"alias_{self.i_key[0]}"
+        for key_0, alias in df.set_index("header")["alias"].items():
+            if alias is not None:
+                self.converter._infotable[key_0][key_1] = alias
+        
         # Write the DataFrame with the mapping summary to an Excel file
-        sheet_name = f"{self.s.capitalize()}s"
-        # self._df2excel(fname,
-        #     f"{self.s.capitalize()}s")
         df.to_excel(
-            self.xl_fname,
-            sheet_name=sheet_name,
+            self.xl_writer,
+            sheet_name=self.sheet_name,
             index=False,
         )
-
-        # Transfer the aliases found by match to the convertor's infotable
-        # The key will be either alias_n or alias_u
-        i_key = f"alias_{self.s[0]}"
-        # Convert the alias column to a dictionary, the keys will be
-        # the values in the header column (which correspond to the keys
-        # of the convertor's infotable)
-        a_dict = df.set_index("header")["alias"].to_dict()
-
-        # Loop over the new dict with the aliases and tranfer the results
-        # into the infotable
-        for key, value in a_dict.items():
-            self.converter._infotable[key][i_key] = value
-
+        # Must call close otherwise any append operation will fail.
+        self.xl_writer.close()
+        
         # Write the logged messages to the log file
         self.update_log_file()
+
+        # # Convert the alias column to a dictionary, the keys will be
+        # # the values in the header column (which correspond to the keys
+        # # of the DataObject's InfoTable)
+        # a_dict = df.set_index("header")["alias"].to_dict()
+
+        # # Loop over the new dict with the aliases and tranfer the results
+        # # into the infotable
+        # for key, value in a_dict.items():
+        #     self.converter._infotable[key][j_key] = value
+
 
     # def _df2excel(self,
     #              xl_fname,

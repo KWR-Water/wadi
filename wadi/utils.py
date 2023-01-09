@@ -132,6 +132,13 @@ class StringList(UserList):
         except:
             pass
 
+    def strip(self):
+        """
+        This method removes all leading or trailing whitespace from
+        the strings in the list.
+        """
+        self.data = [s.strip() for s in self.data]
+
     def strip_parentheses(self):
         """
         Function that modifies the elements of the StringList by 
