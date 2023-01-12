@@ -9,7 +9,7 @@ can be used to import the data that are in the file.
     :okexcept:
     :okwarning:
 
-    wdo.read_data('tutorial_data.xlsx',
+    wdo.file_reader('tutorial_data.xlsx',
         format='stacked',
         c_dict={'SampleId': 'Sample number',
                 'Features': 'Parameter description',
@@ -55,7 +55,7 @@ can be displayed (note that the DataFrame contains nine rows of data)
     :okexcept:
     :okwarning:
 
-    wdo.df.head(9)
+    # wdo.df.head(9)
 
 Inspection of the parameter names shows that sulphate was wrongly
 spelled as `sulphate` and that the name for calcium also includes

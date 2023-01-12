@@ -6,7 +6,10 @@ DICT_KEYS = ['name',
              'unit', 
              'values',
              'sampleids', # Only for stacked 
-             'datatype'
+             'datatype',
+             'alias_n',
+             'alias_u',
+             'u_str',
             ]
 
 class InfoTable(UserDict):
@@ -24,6 +27,7 @@ class InfoTable(UserDict):
      * datatype: to indicate if the data are for a feature or sampleinfo
      * alias_n: the name alias
      * alias_u: the unit alias
+     * u_str: the string parsed by str2pint in the UnitConverter
     """
 
     def __init__(self,
@@ -79,10 +83,10 @@ class InfoTable(UserDict):
         dict_0 = {}
         if (format == 'stacked'):
             # Find the unique combinations of features + units in the DataFrame
-            ufus = (df[col_f] + df[col_u]).dropna().unique()
+            ufus = (df[col_f] + df[col_u].fillna('')).dropna().unique()
             for fu in ufus:
                 # Select a unique feature + unit combination
-                idx = (df[col_f] + df[col_u] == fu)
+                idx = (df[col_f] + df[col_u].fillna('') == fu)
                 # Set the key in the infotable to the first element in the
                 # feature name column (all values in the column will be equal)
                 key_0 = df.loc[idx, col_f].iloc[0]
@@ -111,6 +115,15 @@ class InfoTable(UserDict):
                 # Add dict_1 to the info_table
                 dict_0[key_0] = dict_1
 
+        # Add aliases to ensure an alias is always defined, 
+        # even if mapping does not result in any match.
+        for key_0 in dict_0.copy(): # Iterate over copy to be sure
+            dict_1 = dict_0[key_0]
+            dict_1['alias_n'] = dict_1['name']
+            dict_1['alias_u'] = dict_1['unit']
+            dict_1['u_str'] = None
+            dict_0[key_0] = dict_1   
+        
         # The harmonize method of Harmonizer needs target_index for
         # the DataFrame it will create.
         if (format == 'stacked'):
@@ -146,13 +159,7 @@ class InfoTable(UserDict):
         # Check if all keys in 'value' are valid.
         if not all([k in DICT_KEYS for k in value]):
             raise TypeError("Invalid dict")
-        # Add aliases to ensure an alias is always defined, 
-        # even if mapping does not result in any match.
-        value['alias_n'] = value['name']
-        value['alias_u'] = value['unit']
-        value['q'] = None
-        value['mw'] = None
-        
+
         # Assign 'value' to element 'key'.
         self.data[key] = value
 
@@ -188,13 +195,21 @@ class InfoTable(UserDict):
         rv = ""
         for datatype in ['sampleinfo', 'feature']:
             s = ""
-            rv += f"The following {datatype} data were imported:\n"
+            rv += f"\n* The following {datatype} data were imported:\n"
             for key_0, dict_1 in self.data.items():
                 if dict_1['datatype'] == datatype:
-                    s += f" * name: {key_0}, unit: {dict_1['unit']}\n"
+                    s += f" - name: {key_0}, unit: {dict_1['unit']}\n"
             if len(s):
                 rv += s
             else:
-                rv += "None\n"
+                rv += " - None\n"
         
         return rv[:-1] # Remove trailing carriage return
+
+    def update_items(self, a_dict):
+        for key_0, dict_1 in a_dict.items():
+            for key_1, value in dict_1.items():
+                if value is not None:
+                    self.data[key_0][key_1] = value
+                        
+

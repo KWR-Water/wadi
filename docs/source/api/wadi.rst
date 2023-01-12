@@ -16,9 +16,9 @@ Submodules
    wadi.api_utils
    wadi.base
    wadi.dataobject
-   wadi.harmonize
+   wadi.filereader
+   wadi.harmonizer
    wadi.infotable
-   wadi.mapping
-   wadi.reader
-   wadi.regex
+   wadi.mapper
+   wadi.unitconverter
    wadi.utils

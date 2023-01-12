@@ -1,7 +1,7 @@
 import copy
 import pandas as pd
 
-from wadi.base import WadiChildClass
+from wadi.base import WadiBaseClass
 from wadi.infotable import InfoTable
 from wadi.utils import check_arg, valid_kwargs
 
@@ -38,21 +38,10 @@ DEFAULT_NA_VALUES = [
 ]
 
 
-class Reader(WadiChildClass):
+class FileReader(WadiBaseClass):
     """
     WaDI class for reading files.
     """
-
-    def __init__(
-        self,
-        converter,
-    ):
-        """
-        Class initialization method. Calls the ancestor init method
-        to set the converter attribute.
-        """
-
-        super().__init__(converter)
 
     def __call__(
         self,
@@ -101,34 +90,13 @@ class Reader(WadiChildClass):
 
         # Use c_dict to look up the names of the columns with the compulsory
         # names for stacked data.
-        c_dict = c_dict or DEFAULT_C_DICT
+        self.c_dict = c_dict or DEFAULT_C_DICT
 
-        # Read the file and return a DataFrame with the data,
-        # and lists with the (concentration) units and the
-        # datatype. The keyword arguments can contain any valid
-        # kwarg that is accepted by the pd_reader function.
-        # They are passed verbatim to the _read_data function
-        # and are checked for consistency there.
-        df, units, datatypes = self._read_data(**kwargs)
+        self.mask = mask
 
-        # Use the values in the column with name 'mask' to
-        # hide the values below the detection limit from view.
-        # Still to implement: Convert them to a lower than format.
-        if mask is not None:
-            df = df.loc[df[mask]]
+        self.kwargs = copy.deepcopy(vars()["kwargs"])  # deepcopy just to be sure
 
-        # Store the data that were read in the Converters DataFrame
-        # attribute
-        self.converter.df = df
-
-        # Create the InfoTable dictionary that stores views to the data
-        # read as well as additional information (units, data type)
-        self.converter._infotable = InfoTable(df, format, c_dict, units, datatypes)
-        # Write the InfoTable to the log file (based on the __str__
-        # function in InfoTable)
-        self._log(self.converter._infotable)
-
-    def _read_data(self, **kwargs):
+    def _read_data(self):
         """
         Function that imports the data from a file format readable by
         Pandas. The **kwargs can contain any of the keyword arguments
@@ -139,45 +107,63 @@ class Reader(WadiChildClass):
 
         # Before calling the Pandas reader function, do some error
         # checking/tweaking of the kwargs
-        pd_kwargs = copy.deepcopy(vars()["kwargs"])  # deepcopy just to be sure
-
         # Use the defaults for na_values if the user did not specify their own
-        if "na_values" not in pd_kwargs:
-            pd_kwargs["na_values"] = DEFAULT_NA_VALUES
+        if "na_values" not in self.kwargs:
+            self.kwargs["na_values"] = DEFAULT_NA_VALUES
 
         # Check if the user specified the 'blocks' kwarg, which
         # means that multiple dataframes must be read and joined
-        if "blocks" not in kwargs:
+        if "blocks" not in self.kwargs:
             # If blocks is not in kwargs then store the kwargs in a
             # one-element list
-            blocks = [kwargs]
+            blocks = [self.kwargs]
         else:
             # If blocks is in kwargs then check if it's a sequence
             # before continuing
-            blocks = kwargs["blocks"]
+            blocks = self.kwargs["blocks"]
             if not isinstance(blocks, (list, tuple)):
                 raise ValueError("Argument 'blocks' must be a list or a tuple")
 
         # Loop over the blocks to perform some checks for inconsistent kwargs
-        for pd_kwargs in blocks:
+        for kwargs in blocks:
             # For stacked data the units and datatype are inferred
             # from c_dict when the InfoTable is created
-            if (self.format == "stacked") & ("units_row" in pd_kwargs):
-                pd_kwargs.pop("units_row")
+            if (self.format == "stacked") & ("units_row" in kwargs):
+                kwargs.pop("units_row")
                 self._warn(
                     "Argument 'units_row' can not be used in combination with stacked format and will be ignored."
                 )
-            if (self.format == "stacked") & ("datatype" in pd_kwargs):
-                pd_kwargs.pop("datatype")
+            if (self.format == "stacked") & ("datatype" in kwargs):
+                kwargs.pop("datatype")
                 self._warn("Argument 'datatype' is ignored when format is 'stacked'.")
 
         # Call _read_file to import the data into a single DataFrame
         df, units, datatypes = self._read_file(self.file_path, self.pd_reader, blocks)
 
+        # Use the values in the column with name 'mask' to
+        # hide the values below the detection limit from view.
+        # Still to implement: Convert them to a lower than format.
+        if self.mask is not None:
+            df = df.loc[df[self.mask]]
+
+        # Create the InfoTable dictionary that stores views to the data
+        # read as well as additional information (units, data type)
+        infotable = InfoTable(
+            df,
+            self.format,
+            self.c_dict,
+            units,
+            datatypes,
+        )
+
+        # Write the __str__ representation of the InfoTable to the 
+        # log file.
+        self._log(infotable)
+
         # Write the log string to the log file
         self.update_log_file()
 
-        return df, units, datatypes
+        return df, infotable
 
     def _read_file(
         self,
@@ -236,8 +222,8 @@ class Reader(WadiChildClass):
         datatypes = []
         # Loop over the sets of kwargs in the pane(s)
         for pd_kwargs in blocks:
-            # Set values for unit_row and datatype, these may be 
-            # overridden if the user specified a kwarg for any 
+            # Set values for unit_row and datatype, these may be
+            # overridden if the user specified a kwarg for any
             # of them
             units_row = -1
             datatype = DEFAULT_DATATYPE

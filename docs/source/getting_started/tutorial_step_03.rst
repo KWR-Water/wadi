@@ -23,10 +23,11 @@ need removing), it will be deleted from the final feature name.
 
     name_mapper = {'Chloride': 'Cl',
         'Calcium': 'Ca',
-        'Sulpate': 'SO4',
+        'Sulphate': 'SO4',
     }
     
-    wdo.map_names(m_dict=name_mapper,
+    wdo.name_map(m_dict=name_mapper,
+        match_method=['exact', 'fuzzy'],
         remove_strings=['(ICP-AES)'], 
     )
 

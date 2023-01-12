@@ -1,7 +1,7 @@
 Step 4: Harmonize the data
 --------------------------
 
-The :code:`harmonize` method can do a number of things (combining 
+The :code:`harmonizer` method can do a number of things (combining 
 features, deleting features, converting units). Here it will be 
 called to convert the data format from 'stacked' to 'wide' and to
 convert all chemical concentrations to mg/l by setting 
@@ -11,8 +11,11 @@ convert all chemical concentrations to mg/l by setting
     :okexcept:
     :okwarning:
 
-    df = wdo.harmonize(convert_units=True)
+    df = wdo.harmonizer(convert_units=True, 
+        target_units='mmol/l',
+    )
 
+    df = wdo.get_frame()
     df.head()
 
 Note that the concentrations for the organic substances were below

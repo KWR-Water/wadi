@@ -1,7 +1,7 @@
-wadi.regex module
-=================
+wadi.mapper module
+==================
 
-.. automodule:: wadi.regex
+.. automodule:: wadi.mapper
    :members:
    :undoc-members:
    :show-inheritance:

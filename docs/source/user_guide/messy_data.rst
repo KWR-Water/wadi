@@ -90,7 +90,7 @@ format.
     :okexcept:
     :okwarning:
 
-    wdo.read_data(file_path='messy_data.xlsx',
+    wdo.file_reader(file_path='messy_data.xlsx',
         format='wide',
         blocks=[df0_kwargs, df1_kwargs, df2_kwargs],
     )
@@ -104,7 +104,7 @@ appending '.1'.
     :okexcept:
     :okwarning:
 
-    wdo.df.head()
+    # wdo.df.head()
 
 Step 3: Map the data and units
 ------------------------------
@@ -139,7 +139,7 @@ argument.
         }
     )
 
-    wdo.map_names(m_dict=feature_dict,
+    wdo.name_map(m_dict=feature_dict,
         match_method=['exact', 'fuzzy'],
     )
 
@@ -159,7 +159,7 @@ dictionary with the keyword arguments :code:`replace_strings`.
     :okexcept:
     :okwarning:
 
-    wdo.map_units(match_method=['regex'],
+    wdo.unit_map(match_method=['regex'],
         replace_strings={'μ': 'u', '-': ' ', '%': 'percent'},
     )
 
@@ -215,12 +215,13 @@ be used to convert only the arsenic concentrations to umol/l.
         ['Calcium', 'Calcium.1'],
         ['Arsenic', 'Arsenic.1'],
     ]
-    df = wdo.harmonize(merge_columns=merge_cols, 
+    df = wdo.harmonizer(merge_columns=merge_cols, 
         drop_columns=['Unnamed: 18'],
         target_units = 'mmol/l',
         override_units = {'Arsenic': 'umol/l'},
     )
 
+    df = wdo.get_frame()
     df.head()
 
 Displaying the DataFrame does not show the values for arsenic. To verify

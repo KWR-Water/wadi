@@ -4,7 +4,9 @@ import os
 from pathlib import Path
 import warnings
 
-class WadiParentClass:
+from wadi.utils import _wadi_style_warning
+
+class WadiBaseClass:
     """
     Base class for WADI DataObject class and its children.
     Defines functions to provide functionality to log and
@@ -13,8 +15,8 @@ class WadiParentClass:
 
     def __init__(
         self,
-        log_fname,
-        output_dir,
+        log_fname='wadi.log',
+        output_dir='wadi_output',
         create_file=False,
     ):
         """
@@ -35,18 +37,18 @@ class WadiParentClass:
 
         # Convert output_dir to a Path object and get the absolute
         # path by calling resolve
-        self.output_dir = Path(output_dir).resolve()
+        self._output_dir = Path(output_dir).resolve()
         # Convert log_fname to a Path object
-        self.log_fname = Path(log_fname)
+        self._log_fname = Path(log_fname)
         # Check if only a filename or a full path was specified for
         # the log filename. If only a filename was specified then
         # the parts argument will be equal to one. In that case the
         # output_dir is prefixed to the log filename
-        if len(self.log_fname.parts) == 1:
-            self.log_fname = Path(self.output_dir, self.log_fname)
+        if len(self._log_fname.parts) == 1:
+            self._log_fname = Path(self._output_dir, self._log_fname)
 
         # Create subdirectory for output (log files, Excel files)
-        self.output_dir.mkdir(exist_ok=True)
+        self._output_dir.mkdir(exist_ok=True)
 
         # Add the _log_str attribute. Descendants of this class will
         # use this attribute to create the text strings that will be
@@ -60,12 +62,15 @@ class WadiParentClass:
             self._log("WADI log file", timestamp=True)
             self.update_log_file(mode="w")
 
+        # Override the standard formatting of warnings on the screen.
+        warnings.formatwarning = _wadi_style_warning
+
     def _remove_log_file(self):
         """
         Attempts to delete the log file
         """
         try:
-            os.remove(self.log_fname)
+            os.remove(self._log_fname)
         except OSError:
             pass
 
@@ -137,7 +142,7 @@ class WadiParentClass:
                 the log file.
         """
 
-        warnings.warn(s)
+        warnings.warn(s) # stacklevel=2 suppresses 'warnings.warn(s)' output on the screen
         self._log_str += f"Warning: {s}\n"
 
     def update_log_file(
@@ -158,32 +163,10 @@ class WadiParentClass:
         try:
             # Uses the file open method from codecs to enable unicode
             # characters to be written to the file.
-            with codecs.open(self.log_fname, mode, encoding="utf8") as f:
+            with codecs.open(self._log_fname, mode, encoding="utf8") as f:
                 f.write(self._log_str)
         except FileNotFoundError:
-            self._warn(f"Log file {self.log_fname} could not be created.")
+            self._warn(f"Log file {self._log_fname} could not be created.")
 
         # Reset _log_str to an empty string
         self._log_str = ""
-
-
-class WadiChildClass(WadiParentClass):
-    """
-    Base class for children of the WADI DataObjecttt class. Has the
-    same functionality as WadiParentClass but adds the converter
-    attribute. The __init__ function is designed to ensure that
-    the class instance has the same log_fname and output_dir as
-    the DataObjectt class instance to which the object belongs.
-    """
-
-    def __init__(
-        self,
-        converter,
-    ):
-
-        # Call the ancestor init function to set the log_fname
-        # and output_dir attributes to be the same as for the
-        # DataObject class instance to which the object belongs
-        super().__init__(converter.log_fname, converter.output_dir)
-
-        self.converter = converter

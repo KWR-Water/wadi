@@ -213,3 +213,18 @@ def fuzzy_min_score(s):
     # Use the interp function from NumPy. By default this function 
     # yields fp[0] for x < xp[0] and fp[-1] for x > xp[-1]
     return np.interp(len(s), xp, fp)
+
+def _wadi_style_warning(message, 
+    category, 
+    filename, 
+    lineno, 
+    #file=None, 
+    line=None,
+):
+    """
+    This function formats the warning messages created when 
+    warnings.warn is called from within the _warn method of 
+    WadiBaseClass. Note that this function has prescribed
+    kwargs, see https://docs.python.org/3/library/warnings.html#warnings.formatwarning
+    """
+    return f"WaDI warning: {message}\n"

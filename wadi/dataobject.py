@@ -1,11 +1,11 @@
-from wadi.base import WadiParentClass
+from wadi.base import WadiBaseClass
 from wadi.harmonizer import Harmonizer
 from wadi.mapper import Mapper
-from wadi.reader import Reader
+from wadi.filereader import FileReader
 
 DEFAULT_OUTPUT_DIR = "wadi_output"
 
-class DataObject(WadiParentClass):
+class DataObject(WadiBaseClass):
     """
     Class for importing hydrochemical data in a variety of formats. The
     class provides various functions that allow the user to convert the
@@ -19,6 +19,10 @@ class DataObject(WadiParentClass):
     wi = wd.DataObject()
     wi.read_data('chem_data.xlsx')
     """
+    # file_reader = GenericSetter()
+    # name_map = GenericSetter()
+    # unit_map = GenericSetter()
+    # harmonizer = GenericSetter()
 
     def __init__(
         self,
@@ -47,8 +51,10 @@ class DataObject(WadiParentClass):
         super().__init__(log_fname, output_dir, create_file=True)
 
         # Define placeholder attribute for the DataFrame that will 
-        # contain the data
-        self.df = None
+        # contain the imported data...
+        self._imported_df = None
+        # # ... as well as the converted data
+        # self._converted_df = None
 
         # Define placeholder attribute for the InfoTable. The InfoTable
         # is a dict with information about column names, units, datatypes
@@ -59,17 +65,46 @@ class DataObject(WadiParentClass):
         # Initialize Reader object. The Reader class is designed
         # to be callable so the self.read_data attribute becomes a
         # function that the user can call.
-        self.read_data = Reader(self)
+        self.file_reader = FileReader()
 
         # Initialize Mapper objects. The Mapper class is designed
         # to be callable so the self.map_names and self.map_units
         # attributes becomes functions that the user can call. The
         # 'name' and 'unit' arguments correspond to the keys in the
         # infotable.
-        self.map_names = Mapper(self, "name")
-        self.map_units = Mapper(self, "unit")
+        self.name_map = Mapper("name")
+        self.unit_map = Mapper("unit")
 
         # Initialize Harmonizer object. The Harmonizer class is designed
         # to be callable so the self.harmonize attribute becomes a
         # function that the user can call.
-        self.harmonize = Harmonizer(self)
+        self.harmonizer = Harmonizer()
+
+        # Loop over all attributes and check which are a subclass of 
+        # WadiBaseClass. If they are, ensure that the log file name
+        # and output directory are set to the same value as the
+        # current class.
+        for v in self.__dict__.values():
+            if issubclass(type(v), WadiBaseClass):
+                v._log_fname = self._log_fname
+                v._output_dir = self._output_dir
+
+    def get_frame(self):
+        # Read the file and return a DataFrame with the data,
+        # and lists with the (concentration) units and the
+        # datatype. The keyword arguments can contain any valid
+        # kwarg that is accepted by the pd_reader function.
+        # They are passed verbatim to the _read_data function
+        # and are checked for consistency there.
+        self._imported_df, self._infotable = self.file_reader._read_data()
+        info_table_items = self.name_map.match(self._infotable.keys(), 
+            self._infotable.list('name'))
+        self._infotable.update_items(info_table_items)
+        
+        info_table_items = self.unit_map.match(self._infotable.keys(), 
+            self._infotable.list('unit'))
+        self._infotable.update_items(info_table_items)
+
+        converted_df = self.harmonizer.harmonize(self._infotable)
+
+        return converted_df
