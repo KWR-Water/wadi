@@ -1,6 +1,6 @@
 Background
 ==========
-Each organization has its own unique file format and data model to 
+Each organization uses its own unique file format and data model to 
 store hydrogeochemical data. Importing data from a variety of sources
 can be quite cumbersome and time consuming. WaDI was designed to 
 automate the importing water quality data as much as possible.
@@ -14,7 +14,7 @@ unit conversion and merging of columns. WaDI provides support for:
   parameter stored in a different column) or ‘stacked’ (all parameters are 
   reported in a row-wise fashion)
 * automatically recognizing parameters using an algorithm for name entity 
-  recognition (ner)
+  recognition (NER)
 * recognizing concentration units in a variety of formats (e.g. mg N/l 
   versus mg/l N)
-* looking up information about substances in `PubChem <https://pubchem.ncbi.nlm.nih.gov/>`.
+* looking up information about substances in `PubChem <https://pubchem.ncbi.nlm.nih.gov/>`_.

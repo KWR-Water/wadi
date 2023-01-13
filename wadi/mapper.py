@@ -279,7 +279,7 @@ class Mapper(WadiBaseClass):
     def _match_pubchem(self, strings):
         return [query_pubchem_fuzzy(s) for s in strings]
 
-    def match(
+    def _execute(
         self,
         columns,
         strings,

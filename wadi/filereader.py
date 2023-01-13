@@ -40,7 +40,7 @@ DEFAULT_NA_VALUES = [
 
 class FileReader(WadiBaseClass):
     """
-    WaDI class for reading files.
+    WaDI class for importing data files.
     """
 
     def __call__(
@@ -48,12 +48,18 @@ class FileReader(WadiBaseClass):
         file_path,
         format="stacked",  # str, immutable
         c_dict=None,
-        mask=None,  # Only for stacked data, column name with T/F data
-        pd_reader="read_excel",
-        **kwargs,  # kwargs for the pandas reader function
+        mask=None,  
+        pd_reader="read_excel", # str, immutable
+        **kwargs,  
     ):
 
         """
+        This method initializes a FileReader instance.
+        The keyword arguments can contain any valid
+        kwarg that is accepted by the pd_reader function.
+        They are passed verbatim to the _read_data function
+        and are checked for consistency there.
+        
         Parameters
         ----------
         file_path : str
@@ -61,21 +67,25 @@ class FileReader(WadiBaseClass):
         format : str, optional
             Specifies if the data in the file are in 'stacked' or 'wide'
             format. Permissible formats are defined in VALID_FORMATS.
-            The 'gef' format is not implemented (yet). Default is 'stacked'
-        c_dict : dict
+            The 'gef' format is not implemented (yet). Default: 'stacked'
+        c_dict : dict, optional
             Only used when the format is 'stacked'. This dictionary maps
             column names in the file to the compulsory column names defined
-            in REQUIRED_COLUMNS_S. Default is DEFAULT_C_DICT
-        mask : str
+            in REQUIRED_COLUMNS_S. Default: DEFAULT_C_DICT
+        mask : str, optional
             Name of the column that contains True/False labels, sometimes
             used to indicate if a reported value is below or above the
             detection limit. Only used when the format is 'stacked'.
-        pd_reader : str
+        pd_reader : str, optional
             Name of the Pandas function to read the file. Must be a valid
             function name. While all functions implemented in Pandas could
             be used in principle, the design of WaDI has not been tested
-            for functions other than read_excel and read_csv. Default is
+            for functions other than read_excel and read_csv. Default:
             'read_excel'.
+        **kwargs: dict, optional
+            Dictionary with kwargs for the pandas reader function. The
+            kwargs can be a mix of WaDI specific keywords and valid 
+            keyword arguments for the Pandas reader function (pd_reader).
         """
 
         self.file_path = file_path
@@ -96,13 +106,10 @@ class FileReader(WadiBaseClass):
 
         self.kwargs = copy.deepcopy(vars()["kwargs"])  # deepcopy just to be sure
 
-    def _read_data(self):
+    def _execute(self):
         """
-        Function that imports the data from a file format readable by
-        Pandas. The **kwargs can contain any of the keyword arguments
-        passed to the __call__ function and can be a mix of WaDI
-        specific keywords and valid keyword arguments for the Pandas
-        reader function (pd_read).
+        This method imports the data from a file format readable by
+        Pandas. 
         """
 
         # Before calling the Pandas reader function, do some error
@@ -172,8 +179,10 @@ class FileReader(WadiBaseClass):
         blocks,
     ):
         """
-        Function that calls the specified Pandas reader function to
-        perform the actual data import from file_path.
+        This method calls the specified Pandas reader function to
+        perform the actual data import from file_path. It imports
+        a DataFrame with the data as well as lists with the 
+        measurement units and the datatypes.
 
         Parameters
         ----------

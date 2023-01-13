@@ -158,7 +158,7 @@ class Harmonizer(WadiBaseClass):
             # If all of the above fails, simply return the input value.
             return v
 
-    def harmonize(
+    def _execute(
         self,
         infotable,
     ):

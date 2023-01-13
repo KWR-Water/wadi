@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import codecs
 from datetime import datetime as dt
 import os
@@ -6,7 +7,7 @@ import warnings
 
 from wadi.utils import _wadi_style_warning
 
-class WadiBaseClass:
+class WadiBaseClass(ABC):
     """
     Base class for WADI DataObject class and its children.
     Defines functions to provide functionality to log and
@@ -75,15 +76,10 @@ class WadiBaseClass:
 
         # Override the standard formatting of warnings on the screen.
         warnings.formatwarning = _wadi_style_warning
-
-    def _remove_log_file(self):
-        """
-        Attempts to delete the log file
-        """
-        try:
-            os.remove(self._log_fname)
-        except OSError:
-            pass
+    
+    @abstractmethod
+    def _execute(self):
+        pass
 
     def _log(
         self,
@@ -182,3 +178,12 @@ class WadiBaseClass:
 
         # Reset _log_str to an empty string
         self._log_str = ""
+
+    def _remove_log_file(self):
+        """
+        Attempts to delete the log file
+        """
+        try:
+            os.remove(self._log_fname)
+        except OSError:
+            pass
