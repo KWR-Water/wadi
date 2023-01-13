@@ -111,7 +111,7 @@ class UnitConverter:
 
     def get_uc(
         self,
-        q,
+        qs,
         target_units,
         mw,
     ):
@@ -120,14 +120,19 @@ class UnitConverter:
         conversion factor.
         """
         try:
+            qt = self.ureg(target_units)
             if mw is None:
-                rv = q.to(target_units)
+                uc = qs.to(qt)
             else:
-                rv = q.to(target_units, 'chemistry', mw=mw)
-        except DimensionalityError as e:
-            rv = None
+                uc = qs.to(qt, 'chemistry', mw=mw)
+
+            # Divide uc by qs to get the right dimensions
+            uc /= qs 
+        except (AttributeError, DimensionalityError) as e:
+            qt = None
+            uc = None
         
-        return rv
+        return qt, uc
 
     def _str2pint(
         self,
@@ -153,6 +158,8 @@ class UnitConverter:
             The units represented as Pint Quantity object.
         mw : Pint Quantity object
             The molecular mass of the substance.
+        msg : str
+            A message intended for the log file.
 
         Notes
         ----------

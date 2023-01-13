@@ -28,6 +28,7 @@ class DataObject(WadiBaseClass):
         self,
         log_fname="wadi.log",
         output_dir=DEFAULT_OUTPUT_DIR,
+        silent=False,
     ):
         """
         Class initialization method. Initializes the parent class 
@@ -42,13 +43,25 @@ class DataObject(WadiBaseClass):
             Name of the log file
         output_dir : str, optional
             Name of the directory with output files
+        silent : bool, optional,
+            Flag to indicate if screen output is desired during
+            data processing. When True then no screen output is
+            displayed. Default is False (recommended for large 
+            data files when processing can be slow). When
+            True messages will still appear in the log file. Warnings
+            are always displayed on the screen regardless of the
+            value for 'silent'.
         """
 
         # Call the ancestors initialization method to set the log file
         # name and output directory. The argument create_file is 
         # set to True to ensure that the log_file is written so that
         # other parts of the code can append to it.
-        super().__init__(log_fname, output_dir, create_file=True)
+        super().__init__(log_fname, 
+            output_dir, 
+            silent,
+            create_file=True,
+        )
 
         # Define placeholder attribute for the DataFrame that will 
         # contain the imported data...
@@ -88,6 +101,7 @@ class DataObject(WadiBaseClass):
             if issubclass(type(v), WadiBaseClass):
                 v._log_fname = self._log_fname
                 v._output_dir = self._output_dir
+                v._silent = self._silent
 
     def get_frame(self):
         # Read the file and return a DataFrame with the data,

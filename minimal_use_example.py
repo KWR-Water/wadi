@@ -18,14 +18,15 @@ name_mapper = {'Chloride': 'Cl',
     'Calcium': 'Ca',
     'Sulphate': 'SO4',
 }
-wdo.name_map(m_dict=name_mapper,
-    match_method=['exact', 'fuzzy'],
-    remove_strings=['(ICP-AES)'], 
-)
+# wdo.name_map(m_dict=name_mapper,
+#     match_method=['exact', 'fuzzy'],
+#     remove_strings=['(ICP-AES)'], 
+# )
+#wdo.map_units()
 
-wdo.harmonizer(convert_units=True,
-    target_units='mmol/l',
-)
+# wdo.harmonizer(convert_units=True,
+#     target_units='mmol/l',
+# )
 
 df = wdo.get_frame()
 

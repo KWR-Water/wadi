@@ -286,7 +286,7 @@ class Mapper(WadiBaseClass):
     ):
         """
         """
-        self._log(f"{self.i_key.capitalize()} mapping", header=True)
+        self._msg(f"{self.i_key.capitalize()} mapping", header=True)
 
         try:
             strings = StringList(strings)
@@ -362,13 +362,13 @@ class Mapper(WadiBaseClass):
                 # Update the main df with the values in dfsub
                 df.update(dfsub)
 
-                self._log(f" * Match method '{m}' yielded the following results:")
+                self._log(f"* Match method '{m}' yielded the following results:")
                 for name, searched, found, alias in zip(
                     dfsub["name"], dfsub["searched"], dfsub["found"], dfsub["alias"]
                 ):
                     if found is not None:
                         self._log(
-                            f"   - {name}: Searched {searched}, found {found}, alias {alias}."
+                            f" - {name}: Searched {searched}, found {found}, alias {alias}."
                         )
 
             except NotImplementedError:
@@ -376,17 +376,17 @@ class Mapper(WadiBaseClass):
 
         rv_dict = {}
         if self.i_key == "unit":
-            self._log(f"{self.i_key.capitalize()} parsing", header=True)
+            # Transfer the unit strings found to the DataObject's
+            # InfoTable by iterating over the 'found' column. The
+            # values in the 'header' column match up with the level-0
+            # keys of the InfoTable.
             for index, (key_0, u_str) in df[["header", "found"]].dropna().iterrows():
-            # for key_0, u_str in df.set_index("header")["found"].items():
                 rv_dict[key_0] = {'u_str': u_str}
         elif self.i_key == "name":
             # Transfer the aliases found to the DataObject's
-            # InfoTable by iterating over the 'alias' column. Setting
-            # the 'header' column as the index ensures that the keys
-            # match up with the level-0 keys of the InfoTable.
-            # The key (key_1) will be either alias_n or alias_u
-            # for key_0, alias in df.set_index("header")["alias"].items():
+            # InfoTable by iterating over the 'alias' column. The
+            # values in the 'header' column match up with the level-0
+            # keys of the InfoTable.
             for index, (key_0, alias) in df[["header", "alias"]].dropna().iterrows():
                 rv_dict[key_0] = {"alias_n": alias}
 
@@ -396,26 +396,3 @@ class Mapper(WadiBaseClass):
         self._df2excel(df)
 
         return rv_dict
-
-        # # Convert the alias column to a dictionary, the keys will be
-        # # the values in the header column (which correspond to the keys
-        # # of the DataObject's InfoTable)
-        # a_dict = df.set_index("header")["alias"].to_dict()
-
-        # # Loop over the new dict with the aliases and tranfer the results
-        # # into the infotable
-        # for key, value in a_dict.items():
-        #     self.converter._infotable[key][j_key] = value
-
-    # def _df2excel(self,
-    #              xl_fname,
-    #              sheet_name):
-
-    #     writer = pd.ExcelWriter(xl_fname)
-
-    #     self.df.to_excel(writer,
-    #                      sheet_name=sheet_name,
-    #                      index=False,
-    #                     )
-
-    #     writer.save()

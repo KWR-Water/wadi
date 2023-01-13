@@ -17,6 +17,7 @@ class WadiBaseClass:
         self,
         log_fname='wadi.log',
         output_dir='wadi_output',
+        silent=False,
         create_file=False,
     ):
         """
@@ -28,6 +29,14 @@ class WadiBaseClass:
             Name of the log file
         output_dir : str, optional
             Name of the directory with output files
+        silent : bool, optional,
+            Flag to indicate if screen output is desired during
+            data processing. When True then no screen output is
+            displayed. Default is False (recommended for large 
+            data files when processing can be slow). When
+            True messages will still appear in the log file. Warnings
+            are always displayed on the screen regardless of the
+            value for 'silent'. 
         create_file : bool, optional
             Flag to indicate if the log file must be created. Must be
             explicitly set to True when an object of this class is
@@ -49,6 +58,8 @@ class WadiBaseClass:
 
         # Create subdirectory for output (log files, Excel files)
         self._output_dir.mkdir(exist_ok=True)
+
+        self._silent = silent
 
         # Add the _log_str attribute. Descendants of this class will
         # use this attribute to create the text strings that will be
@@ -124,7 +135,8 @@ class WadiBaseClass:
                 Any keyword argumetns to be passed onto _log_str.
         """
 
-        print(s)
+        if not self._silent:
+            print(s)
         self._log(s, **kwargs)
 
     def _warn(
@@ -142,7 +154,7 @@ class WadiBaseClass:
                 the log file.
         """
 
-        warnings.warn(s) # stacklevel=2 suppresses 'warnings.warn(s)' output on the screen
+        warnings.warn(s) 
         self._log_str += f"Warning: {s}\n"
 
     def update_log_file(

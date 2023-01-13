@@ -37,8 +37,10 @@ class Harmonizer(WadiBaseClass):
         self.merge_columns = []
 
         # self._bd_factor = BD_FACTORS[check_arg(convert_bds, BD_FACTORS.keys())]
-        self._bd_RE = rf"(^\s*<\s*)"
+        self._bd_RE = rf"(^\s*[<>]\s*)"
         self.decimal_str = ","
+
+        self.unit_converter = UnitConverter()
 
     # Defining __call__ method
     def __call__(
@@ -48,7 +50,7 @@ class Harmonizer(WadiBaseClass):
         override_units=None,
         drop_columns=None,
         merge_columns=None,
-        lt_symbol="<",  # str, immutable
+        detection_limit_symbols="<>",  # str, immutable
         decimal_str=",",  # str, immutable
     ):
         """
@@ -77,10 +79,12 @@ class Harmonizer(WadiBaseClass):
             elements is the column to keep. Any NaN values that
             appear in this column will be replaced by non-NaN values
             from the subsequent columns in the list element.
-        lt_symbol : str, optional
-            A string that represents the symbol that is used for
-            measurement values below the detection limit. Default:
-            '<'.
+        detection_limit_symbols : str, optional
+            A string that contains the symbols that are used for
+            measurement values beyond (below or above) the detection
+            limit. Default: '<>' (both values below the detection
+            limit, e.g. < 0.1, and above the detection limit, e.g.
+            > 0.1 will be identified this way).
         decimal_str : str, optional
             The character used as the decimal separator when a number
             is represented as a string in the original data,
@@ -100,7 +104,7 @@ class Harmonizer(WadiBaseClass):
         self.decimal_str = decimal_str
         check_if_nested_list(self.merge_columns)
 
-        self._bd_RE = rf"(^\s*{lt_symbol}\s*)"
+        self._bd_RE = rf"(^\s*[{detection_limit_symbols}]\s*)"
 
         # return self.harmonize()
 
@@ -154,7 +158,8 @@ class Harmonizer(WadiBaseClass):
             # If all of the above fails, simply return the input value.
             return v
 
-    def harmonize(self, 
+    def harmonize(
+        self,
         infotable,
     ):
         """
@@ -168,7 +173,7 @@ class Harmonizer(WadiBaseClass):
         df : DataFrame
             DataFrame with the transformed data.
         """
-        self._log("Harmonizing", header=True)
+        self._msg("Harmonizing", header=True)
 
         # Initialize the DataFrame to be created. Uses the target_index
         # by the InfoTable that ensures that the sampleids for
@@ -184,18 +189,20 @@ class Harmonizer(WadiBaseClass):
         units_header_dict = {}
         # Iterate over items in the InfoTable. Recall that InfoTable
         # is a nested dict and key_0 is used to indicate the level-0
-        # keys and dict_1 (their corresponding values) are the 
+        # keys and dict_1 (their corresponding values) are the
         # level-1 dictionaries. This terminology is used here as well
         # for consistency.
         for key_0, dict_1 in infotable.items():
-
-            self._log(f"Processing {key_0}.")
-
             # Do not process items that the user has indicated
             # should be skipped.
             if key_0 in self.drop_columns:
-                self._log(f" - Dropping column: {dict_1['name']}")
+                self._log(f"* Dropping column: {key_0}")
                 continue
+
+            # Get the datatype ('sampleinfo' or 'feature')
+            datatype = dict_1["datatype"]
+
+            self._msg(f"* Processing {key_0} ({datatype}).")
 
             # The actual data are Pandas Series that are a view
             # to the DataFrame created in read_data().
@@ -243,37 +250,38 @@ class Harmonizer(WadiBaseClass):
             # pieced together at the end into a new DataFrame.
             values = pd.to_numeric(values.dropna(), errors="ignore")
 
-            # Get the datatype ('sampleinfo' or 'feature')
-            datatype = dict_1["datatype"]
-
             # The column name in the new DataFrame will be the item's
             # alias...
             alias_n = dict_1["alias_n"]
+            self._msg(f" - Alias: {alias_n}")
             # ... and the units will be the item's unit alias.
             alias_u = dict_1["alias_u"]
-
-            u_str = dict_1["u_str"]
- 
-            # Try to parse the unit string with Pint. Returns the
-            # Pint Quantity objects q (for the units) and mw (for
-            # the molar mass) to be used for unit conversion.
-            unit_converter = UnitConverter()
-            q, mw, msg = unit_converter._str2pint(alias_n, u_str)
-            self._log(msg)
 
             # Process the data depending on the datatype
             # For features, convert units and handle values
             # below the detection limit
-            if self.convert_units and (datatype == "feature"):
+            if datatype == "feature":
                 # Define a unit conversion factor that will be used
                 # if the unit parsing code below does not yield a
                 # valid conversion factor (e.g., in case unit parsing
                 # by Pint fails).
                 uc_factor = 1.0
- 
-                # q may be None if the units were not properly
+
+                # Try to parse the input unit string with _str2pint. 
+                # Returns a Pint Quantity objects qs (for the units) 
+                # and mw (for the molar mass) to be used for unit 
+                # conversion.
+                u_str = dict_1["u_str"]
+                qs, mw, msg = self.unit_converter._str2pint(alias_n, u_str)
+                self._log(msg)
+                # Infer the unit alias from the short pretty
+                # format string representation of qs.
+                if (qs is not None):
+                    alias_u = f"{qs.units:~P}"
+
+                # qs may be None if the units were not properly
                 # identified by Pint
-                if q is not None:
+                if self.convert_units:
                     # The user may wish to override the general
                     # target units, in which case the desired
                     # units were passed in the dict override_units.
@@ -282,7 +290,7 @@ class Harmonizer(WadiBaseClass):
                     else:
                         target_units = self.target_units
 
-                    uc = unit_converter.get_uc(q, target_units, mw)
+                    qt, uc = self.unit_converter.get_uc(qs, target_units, mw)
 
                     if uc is not None:
                         # uc is a Quantity object, for converting the
@@ -290,18 +298,18 @@ class Harmonizer(WadiBaseClass):
                         # is needed...
                         uc_factor = uc.magnitude
                         # ... and the units attribute becomes the unit
-                        # alias. The formatted string with the ~P 
-                        # format specifier returns the units in 
+                        # alias. The formatted string with the ~P
+                        # format specifier returns the units in
                         # Pint's "short pretty format".
-                        alias_u = f"{uc.units:~P}"
-                        self._log(f" - Converting units for {key_0} from {dict_1['unit']} to {alias_u}.")
-                        self._log(f" - Unit conversion factor: {uc:~P}")
+                        alias_u = f"{qt.units:~P}"
+                        self._log(
+                            f" - Converting units for {alias_n} from {dict_1['unit']} to {alias_u}."
+                        )
+                        self._log(f" - Unit conversion factor: {uc:~P}.")
                     else:
-                        self._log(f" - Could not convert from {q.units} to {target_units} for {key_0}.")
-                        # Infer the unit alias from the short pretty
-                        # format string representation of q (an
-                        # exception was caught so uc does not exist).
-                        alias_u = f"{q.units:~P}"
+                        self._log(
+                            f" - Could not convert from {u_str} to {target_units} for {alias_n}."
+                        )
 
                 # Convert the measurement values using _convert_values.
                 values = values.apply(self._convert_values, conversion_factor=uc_factor)
@@ -316,16 +324,27 @@ class Harmonizer(WadiBaseClass):
         # Check for any columns to be merged. Iterates through the lists in
         # merge_columns. The first list element is the column of which the
         # NaN values must be replaced by the non-NaN values in the subsequent
-        # columns in the list.
-        for l in self.merge_columns:
-            self._log(
-                f" - NaN values in {l[0]} will be replaced with values from {', '.join(c for c in l[1:])}"
-            )
-            for c in l[1:]:
-                df[l[0]].fillna(df[c], inplace=True)
-                column_header_dict.pop(c)
-                units_header_dict.pop(c)
-            df.drop(l[1:], axis=1, inplace=True)
+        # columns in the list. Merging is skipped when the units of the source
+        # column is not compatible with the target column
+        if len(self.merge_columns):
+            self._log("* Merging columns")
+        for c_list in self.merge_columns:
+            target_col = c_list[0]
+            target_col_units = units_header_dict[target_col]
+            for source_col in c_list[1:]:
+                source_col_units = units_header_dict[source_col]
+                if target_col_units == source_col_units:
+                    df[target_col].fillna(df[source_col], inplace=True)
+                    self._log(
+                        f" - NaN values in column {target_col} will be replaced with values from column {source_col}."
+                    )
+                    column_header_dict.pop(source_col)
+                    units_header_dict.pop(source_col)
+                    df.drop(source_col, axis=1, inplace=True)
+                else:
+                    self._log(
+                        f" - Merge failed: Units of column {target_col} ({target_col_units}) incompatible with column {source_col} ({source_col_units})."
+                    )
 
         # Assign a nested list to df.columns. This way the column
         # headings become a MultiIndex, so that both the column names
