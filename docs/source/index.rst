@@ -12,6 +12,7 @@ WaDI is an open-source Python package for painless Water Data Importing.
 
     Getting started <getting_started/index.rst>
     User guide <user_guide/index.rst>
+    Developer guide <developer_guide/index.rst>
     API reference <api/modules.rst>
 
 Indices and tables

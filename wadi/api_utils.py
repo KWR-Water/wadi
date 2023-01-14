@@ -1,6 +1,9 @@
+# from importlib.metadata import version
 import re
 import requests
 import time
+
+import googletrans as gt
 
 RE_CAS = r"^(CAS-)?(\d+)-(\d+)-(\d+)$" # Regular expression for CAS number in PubChem list of synonyms
 REQ_PER_SEC = 5 # PUBCHEM API does not accept >5 requests per second
@@ -48,6 +51,47 @@ PUBCHEM_COMPOUND_PROPS = [
     'Fingerprint2D',
 ]
 
+def translate_strings(strings, 
+    src_lang, 
+    dst_lang,
+    max_attempts,
+    ):
+    """
+    This method attempts to translate a list of strings from
+    src_lang to dst_lang using Google Translate.
+
+    Parameters
+    ----------
+    src_lang : str
+        String that specifies the language to translate from.
+        Default: "NL".
+    dst_lang : str
+        String that specifies the language to translate to.
+        Default: "EN".
+    max_attempts : int
+        The maximum number of attempts to connect to the Google
+        Translate API. Default: 10.
+    """    
+
+    strings = list(strings)
+
+    if not all([l.lower() in gt.LANGUAGES for l in [src_lang, dst_lang]]):
+        raise ValueError("Invalid language(s) specified")
+
+    t = gt.Translator()
+    for i in range(max_attempts):
+        try:
+            rv = []
+            for s in strings:
+                rv.append(t.translate(s, src=src_lang, dest=dst_lang).text)
+            return rv
+        except:
+            print(
+                f"Failed attempt ({i}) to connect to Google Translate API. Retrying..."
+            )
+
+    return None
+
 def get_json(url):
     try:
         response = requests.get(url, timeout=(2, 5))
@@ -66,7 +110,7 @@ def query_pubchem_fuzzy(s):
     url = f"https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete/compound/{s}/json?limit=3"
     js = get_json(url)
     if (js is None):
-        return None
+        return [None, None]
     if (js['total'] > 0):
         compound = js['dictionary_terms']['compound'][0]
         synonym = query_pubchem_synonyms(compound)

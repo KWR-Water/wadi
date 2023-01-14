@@ -48,18 +48,18 @@ class FileReader(WadiBaseClass):
         file_path,
         format="stacked",  # str, immutable
         c_dict=None,
-        mask=None,  
-        pd_reader="read_excel", # str, immutable
-        **kwargs,  
+        mask=None,
+        pd_reader="read_excel",  # str, immutable
+        **kwargs,
     ):
 
         """
         This method initializes a FileReader instance.
-        The keyword arguments can contain any valid
+        The kwargs dictionary can contain any valid
         kwarg that is accepted by the pd_reader function.
         They are passed verbatim to the _read_data function
         and are checked for consistency there.
-        
+
         Parameters
         ----------
         file_path : str
@@ -82,52 +82,52 @@ class FileReader(WadiBaseClass):
             be used in principle, the design of WaDI has not been tested
             for functions other than read_excel and read_csv. Default:
             'read_excel'.
-        **kwargs: dict, optional
-            Dictionary with kwargs for the pandas reader function. The
-            kwargs can be a mix of WaDI specific keywords and valid 
-            keyword arguments for the Pandas reader function (pd_reader).
+        **kwargs: dict, optionalt
+            Dictionary with kwargs for the 'pdt_retader' function. The
+            kwargs can be a mix of WaDI specific keywords and valid
+            keyword arguments for the 'pd_reader' function.
         """
 
-        self.file_path = file_path
-        self.pd_reader = pd_reader
+        self._file_path = file_path
+        self._pd_reader = pd_reader
 
         # Check if user provided a valid format specifier
         format = check_arg(format, VALID_FORMATS)
         # Raise error if the format is not yet implemented
         if format in ["gef"]:
             raise NotImplementedError(f"Format option {format} not implemented yet")
-        self.format = format  # for use in read_data
+        self._format = format  # for use in read_data
 
         # Use c_dict to look up the names of the columns with the compulsory
         # names for stacked data.
-        self.c_dict = c_dict or DEFAULT_C_DICT
+        self._c_dict = c_dict or DEFAULT_C_DICT
 
-        self.mask = mask
+        self._mask = mask
 
-        self.kwargs = copy.deepcopy(vars()["kwargs"])  # deepcopy just to be sure
+        self._kwargs = copy.deepcopy(vars()["kwargs"])  # deepcopy just to be sure
 
     def _execute(self):
         """
         This method imports the data from a file format readable by
-        Pandas. 
+        Pandas. Before calling the Pandas reader function, it checks
+        the kwargs specified by the user when the class object was 
+        initialized. 
         """
 
-        # Before calling the Pandas reader function, do some error
-        # checking/tweaking of the kwargs
         # Use the defaults for na_values if the user did not specify their own
-        if "na_values" not in self.kwargs:
-            self.kwargs["na_values"] = DEFAULT_NA_VALUES
+        if "na_values" not in self._kwargs:
+            self._kwargs["na_values"] = DEFAULT_NA_VALUES
 
         # Check if the user specified the 'blocks' kwarg, which
         # means that multiple dataframes must be read and joined
-        if "blocks" not in self.kwargs:
+        if "blocks" not in self._kwargs:
             # If blocks is not in kwargs then store the kwargs in a
             # one-element list
-            blocks = [self.kwargs]
+            blocks = [self._kwargs]
         else:
             # If blocks is in kwargs then check if it's a sequence
             # before continuing
-            blocks = self.kwargs["blocks"]
+            blocks = self._kwargs["blocks"]
             if not isinstance(blocks, (list, tuple)):
                 raise ValueError("Argument 'blocks' must be a list or a tuple")
 
@@ -135,35 +135,37 @@ class FileReader(WadiBaseClass):
         for kwargs in blocks:
             # For stacked data the units and datatype are inferred
             # from c_dict when the InfoTable is created
-            if (self.format == "stacked") & ("units_row" in kwargs):
+            if (self._format == "stacked") & ("units_row" in kwargs):
                 kwargs.pop("units_row")
                 self._warn(
                     "Argument 'units_row' can not be used in combination with stacked format and will be ignored."
                 )
-            if (self.format == "stacked") & ("datatype" in kwargs):
+            if (self._format == "stacked") & ("datatype" in kwargs):
                 kwargs.pop("datatype")
                 self._warn("Argument 'datatype' is ignored when format is 'stacked'.")
 
-        # Call _read_file to import the data into a single DataFrame
-        df, units, datatypes = self._read_file(self.file_path, self.pd_reader, blocks)
+        # Call _read_file to import the (blocks of) data into a single 
+        # DataFrame.
+        df, units, datatypes = self._read_file(self._file_path, self._pd_reader, blocks)
 
         # Use the values in the column with name 'mask' to
         # hide the values below the detection limit from view.
         # Still to implement: Convert them to a lower than format.
-        if self.mask is not None:
-            df = df.loc[df[self.mask]]
+        if self._mask is not None:
+            df = df.loc[df[self._mask]]
 
-        # Create the InfoTable dictionary that stores views to the data
-        # read as well as additional information (units, data type)
+        # Create the InfoTable dictionary that stores views to the
+        # imported data as well as additional information (units,
+        # data type)
         infotable = InfoTable(
             df,
-            self.format,
-            self.c_dict,
+            self._format,
+            self._c_dict,
             units,
             datatypes,
         )
 
-        # Write the __str__ representation of the InfoTable to the 
+        # Write the __str__ representation of the InfoTable to the
         # log file.
         self._log(infotable)
 
@@ -181,8 +183,9 @@ class FileReader(WadiBaseClass):
         """
         This method calls the specified Pandas reader function to
         perform the actual data import from file_path. It imports
-        a DataFrame with the data as well as lists with the 
-        measurement units and the datatypes.
+        a DataFrame with the data as well as lists with the
+        measurement units and the datatypes (the latter two are 
+        not used when the data are in 'stacked' format).
 
         Parameters
         ----------
@@ -193,7 +196,8 @@ class FileReader(WadiBaseClass):
         blocks : list
             List with keyword arguments that specify (i) the number
             of the row with the units, (ii) the datatpe and (iii) any
-            kwargs for the pd_reader function.
+            kwargs for the pd_reader function. Note that (i) and (ii)
+            do not apply to 'stacked' data.
 
         Returns
         ----------
@@ -212,8 +216,8 @@ class FileReader(WadiBaseClass):
         Notes
         ----------
         The return values units and datatypes are used when the
-        InfoTable is created for wide-format data. They are not
-        used when the data format is stacked.
+        InfoTable is created for 'wide' format data. They are not
+        used when the data format is 'stacked'.
         """
 
         # Inform user with message on screen that reading has started (may
@@ -224,44 +228,45 @@ class FileReader(WadiBaseClass):
         # Get reference to pandas reader function and determine its valid
         # keyword arguments
         pd_reader = getattr(pd, pd_reader_name)
+        if not (pd_reader.__name__ in ["read_excel", "read_csv"]):
+            self._warn(
+                f"WaDI has not been designed to work with reader {pd_reader}. Proceed with caution."
+            )
 
-        # Start with an empty DataFrame and empty lists for units and datatype
+        # Start with an empty DataFrame...
         df = pd.DataFrame()
+        # ... and empty lists for units and datatype.
         units = []
         datatypes = []
-        # Loop over the sets of kwargs in the pane(s)
+        # Loop over the sets of kwargs in the block(s).
         for pd_kwargs in blocks:
             # Set values for unit_row and datatype, these may be
             # overridden if the user specified a kwarg for any
-            # of them
+            # of them.
             units_row = -1
             datatype = DEFAULT_DATATYPE
-            # Loop over the user-specified kwargs
-            for kwarg in pd_kwargs.copy():  # copy() is needed to avoid RuntimeError
+            # Loop over the user-specified kwargs.
+            for kwarg in pd_kwargs.copy():  # copy() is needed to avoid a RuntimeError
                 if kwarg == "units_row":
                     units_row = pd_kwargs[kwarg]
-                    if not (pd_reader.__name__ in ["read_excel", "read_csv"]):
-                        self._warn(
-                            f"Argument {kwarg} may not work as expected with reader {pd_reader}."
-                        )
                 # Check if a valid datatype was passed and convert to
-                # one of the standard formats contained in VALID_DATAYPES
+                # one of the standard formats contained in VALID_DATAYPES.
                 if kwarg == "datatype":
                     datatype = check_arg(pd_kwargs[kwarg], VALID_DATATYPES)
-                # Index columns are not supported to avoid duplicate
+                # Index columns are not supported to avoid duplicate.
                 # index errors etc.
                 if kwarg == "index_col":
                     raise ValueError("Argument 'index_col' not allowed in WADI")
 
-            # Create a verbose message for the log file
+            # Create a verbose message for the log file.
             kws = ", ".join(f"{k}={v}" for k, v in pd_kwargs.items())
             self._log(f" - pandas.{pd_reader_name}('{file_path}', {kws})")
 
-            # Call the requested Pandas reader function to import the data
+            # Call the requested Pandas reader function to import the data.
             df_r = pd_reader(file_path, **valid_kwargs(pd_reader, **pd_kwargs))
 
             # Use the pd.concat function to join the return values from the
-            # pandas reader function (i.e. the DataFrames read from the file)
+            # pandas reader function (i.e. the DataFrames read from the file).
             df = pd.concat([df, df_r], axis=1)
 
             # Read the units if the user specified a valid row number, else...
@@ -274,7 +279,7 @@ class FileReader(WadiBaseClass):
             else:
                 units += [""] * df_r.shape[1]
 
-            # Make sure that the datatype for this pane is copied as many
+            # Make sure that the datatype for this block is copied as many
             # times as there are columns in the DataFrame that was read
             datatypes += [datatype] * df_r.shape[1]
 
@@ -285,11 +290,11 @@ class FileReader(WadiBaseClass):
         file_path,
         pd_reader,
         pd_kwargs,
-        units_row,
+        row_number,
     ):
         """
-        Function that calls the specified Pandas reader function to
-        read a single line from file_path.
+        This method calls the specified Pandas reader function to
+        read a single row from file_path.
 
         Parameters
         ----------
@@ -299,28 +304,29 @@ class FileReader(WadiBaseClass):
             Name of the Pandas function to read the file.
         pd_kwargs : dict
             Keyword arguments for the pd_reader function.
-        units_row : int
-            Number of the row with the units.
+        row_number : int
+            The (zero-based) number of the row to read.
 
         Returns
         ----------
         result : list
             List with the values read.
         """
-        # Assemble the appropriate kwargs to read a single line,
+        # Assemble the appropriate kwargs to read a single row,
         # this may include the user-specified keywords sheet_name
         # and usecols.
-        units_kwargs = {}
-        units_kwargs["header"] = None
-        # Note that header=None does not seem to work in conjuction with skiprows!
-        # Therefore, read the data up until row units_row + 1, the units will be
-        # in the last row of the dataframe returned by the reader
-        units_kwargs["nrows"] = units_row + 1
+        sr_kwargs = {} # sr is shorthand for single row
         if "sheet_name" in pd_kwargs:
-            units_kwargs["sheet_name"] = pd_kwargs["sheet_name"]
+            sr_kwargs["sheet_name"] = pd_kwargs["sheet_name"]
         if "usecols" in pd_kwargs:
-            units_kwargs["usecols"] = pd_kwargs["usecols"]
+            sr_kwargs["usecols"] = pd_kwargs["usecols"]
+        sr_kwargs["header"] = None
+        # Note that header=None does not seem to work in conjuction
+        # with skiprows! Therefore, read the data up until row 
+        # row_number + 1, the units will be in the last row of the
+        # dataframe returned by the reader.
+        sr_kwargs["nrows"] = row_number + 1
 
-        # Read the data, fill the NaNs and return the last row of
-        # the DataFrame as a list
-        return pd_reader(file_path, **units_kwargs).fillna("").values[-1].tolist()
+        # Read the data, replace any NaNs with empty strings and 
+        # return the last row of the DataFrame as a list
+        return pd_reader(file_path, **sr_kwargs).fillna("").values[-1].tolist()

@@ -24,10 +24,10 @@ class Harmonizer(WadiBaseClass):
         self,
     ):
         """
-        Class initialization method. Calls the ancestor init method
-        to set the converter attribute.
+        Class initialization method.
         """
-
+        # Call the ancestor's initialization method to define the 
+        # generic class attributes and methods.
         super().__init__()
 
         self.convert_units = False

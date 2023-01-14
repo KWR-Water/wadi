@@ -11,11 +11,12 @@ import fuzzywuzzy.process as fwp
 from wadi.base import WadiBaseClass
 from wadi.utils import StringList, check_arg_list, fuzzy_min_score
 from wadi.api_utils import (
+    translate_strings,
     query_pubchem_fuzzy,
     query_pubchem_cas,
     query_pubchem_synonyms,
 )
-from wadi.unitconverter import UnitRegexMapper, UnitConverter
+from wadi.unitconverter import UnitRegexMapper
 
 DEFAULT_STR2REPLACE = {
     "Ä": "a",
@@ -59,110 +60,233 @@ DEFAULT_STR2REMOVE = [
     "bij",  # whitespace, string, whitespace
 ]
 
-VALID_METHODS = ["exact", "ascii", "regex", "fuzzy", "pubchem"]
+VALID_MAP_METHODS = ["exact", "ascii", "regex", "fuzzy", "pubchem"]
 
 
 class MapperDict(UserDict):
+    """
+    Instances of this class are meant to be used as dictionaries
+    that translate names and units into their aliases. It derives
+    from the UserDict wrapper to extend the functionality of a
+    regular Python dict with some class methods to create an
+    instance from json files or PubChem queries. The dictionary
+    can also be saved to a json file and it contains a translate
+    method to create a dictionary that translates between languages
+    (currently not working due to issues with Google Translate).
+    """
+
     @classmethod
-    def from_file(cls, fname):
-        with open(fname, "r") as fp:
+    def from_file(cls, file_path):
+        """
+        This method initializes the class by reading a dictionary
+        from a json file.
+
+        Parameters
+        ----------
+        file_path : str
+            The json file to be read.
+
+        Returns
+        ----------
+        result : class instance
+            An instance of the UserDict class containing the
+            imported data.
+        """
+        with open(file_path, "r") as fp:
             return cls(json.load(fp))
 
     @classmethod
-    def default_dict(cls, v0, v1):
-        # Get the path of the current module file's parent directory
+    def default_dict(cls, keys, values):
+        """
+        This method initializes the class by reading a dictionary
+        from the file default_feature_map.json. The function
+        arguments are the column names that should become the
+        dictionary keys and values, respectively.
+
+        Parameters
+        ----------
+        keys : str
+            The name of the column whose values should become
+            the dictionary keys.
+        values : str
+            The name of the column whose values should become
+            the dictionary values.
+
+        Returns
+        ----------
+        result : class instance
+            An instance of the UserDict class containing the
+            imported data.
+        """
+        # The json file resides in the parent directory of the
+        # current module's py file. The __file__ attribute returns
+        # the pathname of the current py file and .parents[1]
+        # provides its parent directory.
         filepath = Path(__file__).parents[1]
+        # Import the file into a DataFrame.
         dfj = pd.read_json(Path(filepath, "default_feature_map.json"))
-        dfd = dfj[[v0, v1]].explode(v0).dropna()
-        return cls(dfd.set_index(v0)[v1].to_dict())
+        # Use the DataFrame's explode function to transform any keys
+        # that are a list (or list-like) into a row. The corresponding
+        # value is duplicated for each element in the list that becomes
+        # a row.
+        dfd = dfj[[keys, values]].explode(keys).dropna()
+        # Return the DataFrame as a dictionary.
+        return cls(dfd.set_index(keys)[values].to_dict())
 
     @classmethod
     def pubchem_cas_dict(cls, strings):
-        return cls({s: query_pubchem_cas(s) for s in strings})
+        """
+        This method creates a dictionary with CAS numbers for the
+        names in 'strings' using the PubChem REST API.
+
+        Parameters
+        ----------
+        strings : list or list-like
+            A list of the names that should be looked up.
+
+        Returns
+        ----------
+        result : class instance
+            An instance of the UserDict class in which the elements
+            of 'strings' are the keys and the CAS numbers the values.
+        """
+        # Note that list() is used to convert 'strings' into a list
+        # just in case a single string is passed.
+        return cls({s: query_pubchem_cas(s) for s in list(strings)})
 
     @classmethod
     def pubchem_cid_dict(cls, strings):
-        rv = {}
-        for s in strings:
-            rv[s] = None
+        """
+        This method creates a dictionary with CID numbers for the
+        names in 'strings' using the PubChem REST API.
+
+        Parameters
+        ----------
+        strings : list or list-like
+            A list of the names that should be looked up.
+
+        Returns
+        ----------
+        result : class instance
+            An instance of the UserDict class in which the elements
+            of 'strings' are the keys and the CID numbers the values.
+        """
+        # Start with an empty dict
+        rv_dict = {}
+        # Note that list() is used to convert 'strings' into a list
+        # just in case a single string is passed
+        for s in list(strings):
+            # Add each element s to the dict
+            rv_dict[s] = None
+            # Look up the PubChem synonyms
             res = query_pubchem_synonyms(s)
+            # If a result was returned
             if res is not None:
+                # Look up the key 'CID' in the first element
+                # of the dict that was returned. An IndeXError
+                # may occur if either of the keys '0' or 'CID'
+                # was not returned (in which case rv_dict[s]
+                # remains None).
                 try:
-                    rv[s] = res[0]["CID"]
+                    rv_dict[s] = res[0]["CID"]
                 except IndexError:
                     pass
 
-        return cls(rv)
-        # return {s: query_pubchem_cid(s) for s in strings}
+        return cls(rv_dict)
 
-    def to_file(self, fname):
-        with open(fname, "w") as fp:
+    def to_file(self, file_path):
+        """
+        This method saves the contents of the dictionary as a json
+        file.
+
+        Parameters
+        ----------
+        file_path : str
+            The json file to be written.
+        """
+        with open(file_path, "w") as fp:
             json.dump(self.data, fp, indent=2)
 
-    def translate(
+    def translate_keys(
         self,
         src_lang="NL",
         dst_lang="EN",
         max_attempts=10,
     ):
-        try:
-            from googletrans import LANGUAGES, Translator
-        except ImportError:
-            raise ImportError("Package 'googletrans' not installed")
+        """
+        This method attempts to translate the dictionary keys from
+        src_lang to dst_lang using Google Translate.
 
-        t = Translator()
+        Parameters
+        ----------
+        src_lang : str, optional
+            String that specifies the language to translate from.
+            Default: "NL".
+        dst_lang : str, optional
+            String that specifies the language to translate to.
+            Default: "EN".
+        max_attempts : int, optional
+            The maximum number of attempts to connect to the Google
+            Translate API. Default: 10.
+        """
 
-        if not all([l.lower() in LANGUAGES for l in [src_lang, dst_lang]]):
-            raise ValueError("Invalid language(s) specified")
-
-        keys_src = list(self.data.keys())
-        for i in range(max_attempts):
-            try:
-                keys_dst = t.translate(keys_src, src=src_lang, dest=dst_lang)
-                # return {k: v for k, v in zip(keys_dst, self.data.values())}
-            except:
-                print(
-                    f"Failed attempt ({i}) to connect to Google Translate API. Retrying..."
-                )
-
-        if i == (max_attempts - 1):
-            raise ValueError("Translation failed. Try again later...")
+        translated_keys = translate_strings(
+            self.data.keys(), src_lang, dst_lang, max_attempts
+        )
+        if translated_keys is not None:
+            translated_dict = {
+                k: v for k, v in zip(translated_keys, self.data.values())
+            }
+            self.data = translated_dict
 
 
 class Mapper(WadiBaseClass):
     """
     WaDI class that implements the operations to map feature names
-    and units to alternate values.
+    and units to their aliases.
     """
 
     def __init__(
         self,
-        i_key,
+        key_1,
     ):
         """
+        Class initialization method.
+
         Parameters
         ----------
-        i_key : str
-            The value of i_key is either 'name' (when called by
-            map_names) or 'unit' (when called by map_units), which
-            are valid keys for the dict elements i_keyin the InfoTable.
+        key_1 : str
+            The value of key_1 is either 'name' or 'unit' depending
+            on what needs to be mapped. Note that these names must
+            correspond to their respective keys in the dict_1
+            elements of the InfoTable, hence the attribute name 'key_1'.
         """
-
+        # Call the ancestor's initialization method to define the 
+        # generic class attributes and methods.
         super().__init__()
 
-        self.i_key = i_key
+        # Set the key that defines the mapper type
+        self._key_1 = key_1
 
-        if self.i_key == "name":
+        # Select appropriate default match method depending on the
+        # mapper type.
+        if self._key_1 == "name":
             self.match_method = ["exact"]
-        elif self.i_key == "unit":
+        elif self._key_1 == "unit":
             self.match_method = ["regex"]
 
-        self.m_dict = None
+        # Define the _m_dict attribute but do not assign a mapping
+        # dictionary.
+        self._m_dict = None
 
-        self.strip_parentheses = False
-        self.regex_map = UnitRegexMapper()
-        self.replace_strings = DEFAULT_STR2REPLACE
-        self.remove_strings = DEFAULT_STR2REMOVE
+        # For parsing units, add a UnitRegexMapper object (could
+        # be used for name mapping in principle as well)
+        self._regex_map = UnitRegexMapper()
+
+        # Define some of the string manipulation attributes
+        self._strip_parentheses = False
+        self._replace_strings = DEFAULT_STR2REPLACE
+        self._remove_strings = DEFAULT_STR2REMOVE
 
     def __call__(
         self,
@@ -174,109 +298,201 @@ class Mapper(WadiBaseClass):
         strip_parentheses=False,
     ):
 
-        if self.i_key == "name":
+        if self._key_1 == "name":
             self.match_method = match_method or ["exact"]
-        elif self.i_key == "unit":
+        elif self._key_1 == "unit":
             self.match_method = match_method or ["regex"]
-        self.match_method = check_arg_list(self.match_method, VALID_METHODS)
+        self.match_method = check_arg_list(self.match_method, VALID_MAP_METHODS)
 
         if isinstance(m_dict, dict):
-            self.m_dict = MapperDict(m_dict)
+            self._m_dict = MapperDict(m_dict)
         else:
-            self.m_dict = m_dict
+            self._m_dict = m_dict
 
-        self.strip_parentheses = strip_parentheses
-        self.regex_map = regex_map
-        self.replace_strings = replace_strings or DEFAULT_STR2REPLACE
-        self.remove_strings = remove_strings or DEFAULT_STR2REMOVE
+        # For parsing units, add a UnitRegexMapper object (could
+        # be used for name mapping in principle as well)
+        self._regex_map = regex_map
 
-        # Call the match method. Passes the keys of the infotable along with
-        # a list of strings which contains either the 'name' or 'unit' values
-        # of all the items in infotable
-        # return self._match(
-        #     # self._infotable.keys(),
-        #     # self._infotable.list(self.i_key),
-        # )
-
-        # # Write the DataFrame with the mapping summary to an Excel file
-        # fname = Path(OUTPUT_DIR, f"{s}_mapping_results_{self._log_fname.stem}.xlsx")
-        # m.df2excel(fname,
-        #            f"{s.capitalize()}s")
-
-        # # Transfer the aliases found by match to the infotable
-        # # The key will be either alias_n or alias_u
-        # i_key = f"alias_{s[0]}"
-        # # Convert the alias column to a dictionary, the keys will be
-        # # the values in the header column (which correspond to the keys
-        # # of the infotable)
-        # a_dict = m.df.set_index('header')['alias'].to_dict()
-
-        # # Loop over the new dict with the aliases and tranfer the results
-        # # into the infotable
-        # for key, value in a_dict.items():
-        #     self._infotable[key][i_key] = value
+        # Define some of the string manipulation attributes
+        self._strip_parentheses = strip_parentheses
+        self._replace_strings = replace_strings or DEFAULT_STR2REPLACE
+        self._remove_strings = remove_strings or DEFAULT_STR2REMOVE
 
     def _df2excel(self, df):
         """
-        # Create an ExcelWriter instance that will append a sheet
-        # if the file already exists (for example when units are
-        # mapped after names) or create the file when it does not
-        # yet exist (when mapping is performed for the first time).
-        # Any sheets in an already-existing file will get overwritten
-        # through the use of if_sheet_exists='replace'
+        This method creates an ExcelWriter instance that will either
+        append a worksheet to an existing Excel file (for example 
+        when units arevmapped after names) or creates a new Excel
+        file when it does not yet exist (when mapping is performed 
+        for the first time). Any sheets in an already-existing file 
+        will get overwritten through the use of if_sheet_exists='replace'.
+
+        Parameters
+        ----------
+        df : DataFrame
+            The DataFrame to be saved to the Excel file.
+
+        Raises
+        ------
+
+        FileNotFoundError
+            When the file exists but has a size of zero bytes. This
+            error is caught internally and the 'mode' attribute is
+            changed from 'a' to 'w' to overwrite the existing file.
         """
+        # Define the Excel file name based on the name of the log file.
         xl_fpath = Path(
             self._output_dir,
             f"mapping_results_{self._log_fname.stem}.xlsx",
         )
 
         try:
+            # Check if any existing file with the same name has a
+            # size greater than zero bytes. A file may have been
+            # created but not properly written if an error occured.
+            # If that was the case, an error will occur.
             if xl_fpath.stat().st_size > 0:
+                # If the file size is greater than zero, initialize
+                # the ExcelWriter object with mode="a" to append the
+                # worksheet.
                 xl_writer = pd.ExcelWriter(
                     xl_fpath,
                     mode="a",
                     if_sheet_exists="replace",
                 )
             else:
+                # If the file size is zero, raise the same error that
+                # would be raised if the file did not exists.
                 raise FileNotFoundError
         except FileNotFoundError:
+            # If the file does not exist, initialize the ExcelWriter
+            # object with mode="w" so that the worksheet is added to
+            # an empty file.
             xl_writer = pd.ExcelWriter(
                 xl_fpath,
                 mode="w",
             )
 
-        # Write the DataFrame with the mapping summary to an Excel file
+        # Add the DataFrame to write it to the Excel file.
         df.to_excel(
             xl_writer,
-            sheet_name=f"{self.i_key.capitalize()}s",
+            sheet_name=f"{self._key_1.capitalize()}s",
             index=False,
         )
         # Must call close otherwise any append operation will fail.
         xl_writer.close()
 
     def _match_exact(self, strings, m_dict):
+        """
+        This method returns the values of the items in m_dict for the
+        elements in 'strings' that match exactly with a key.
+
+        Parameters
+        ----------
+        strings : list
+            A list with strings to be matched to the keys in m_dict.
+        m_dict : dict
+            Dictionary to look up the elements of 'strings' in.
+
+        Returns
+        -------
+        result : list
+            A nested list which for each element in 'strings' 
+            contains a two-item list, the first element being
+            the key that was matched, the second element being
+            the corresponding value from m_dict.
+        """
         return [[s, m_dict[s]] if s in m_dict else [None, None] for s in strings]
 
     def _match_regex(self, strings):
-        regex_match = re.compile(self.regex_map.RE)
+        """
+        This method returns the strings returned by the RegexMapper
+        which tries to match and parse the elements in 'strings' 
+        using a regular expression.
+
+        Parameters
+        ----------
+        strings : list
+            A list with strings to be parsed.
+
+        Returns
+        -------
+        result : list
+            A nested list which for each element in 'strings' 
+            contains a two-item list, the first element being
+            the string produced by the RegexMapper, the second
+            element being None.
+        """
+        regex_match = re.compile(self._regex_map.RE)
         matches = [regex_match.match(s) for s in strings]
         return [
-            [self.regex_map.str(m.groupdict()), None] if m else [None, None]
+            [self._regex_map.str(m.groupdict()), None] if m else [None, None]
             for m in matches
         ]
 
     def _match_fuzzy(self, strings, m_dict):
+        """
+        This method returns the values of the keys in m_dict for the
+        elements in 'strings' that have a fuzzy score above a certain
+        threshold. The score is calculated by fuzzywuzzy's extractOne
+        method.
+
+        Parameters
+        ----------
+        strings : list
+            A list with strings to be matched to the keys in m_dict.
+        m_dict : dict
+            Dictionary to look up the elements of 'strings' in.
+
+        Returns
+        -------
+        result : list
+            A nested list which for each element in 'strings' 
+            contains a two-item list, the first element being
+            the key that was matched (alongside with the score),
+            the second element being the corresponding value from 
+            m_dict.
+        """
+        # Create a lambda function to call the extractOne function
+        # for an element in 'strings'. 
         fuzzy_score = lambda s: fwp.extractOne(
             s,
             list(m_dict.keys()),
             scorer=fwf.token_sort_ratio,
             score_cutoff=fuzzy_min_score(s),
         )
+        # Also create a lambda function that formats the name
+        # of the matched string and the fuzzy score.
         tuple2str = lambda t: f"{t[0]} (score: {t[1]}%)"
+        # Call the fuzzy_score lambda function for each element in
+        # 'strings'.
         scores = [fuzzy_score(s) for s in strings]
+        # Return the nested list with the matched keys (including
+        # the score) and their corresponding values.
         return [[tuple2str(s), m_dict.get(s[0])] if s else [None, None] for s in scores]
 
     def _match_pubchem(self, strings):
+        """
+        This method tries to look up the first compound returned by 
+        a call to PubChem's autocomplete API and its synonym.
+
+        Parameters
+        ----------
+        strings : list
+            A list with strings for which to look up the PubChem 
+            compound and synonym.
+
+        Returns
+        -------
+        result : list
+            A nested list which for each element in 'strings' 
+            contains a two-item list, the first element being
+            the first compound returned by the PubChem autocomplete
+            API, the second element being the corresponding synonym.
+        """
+        # Call the query_pubchem_fuzzy function for each element in
+        # 'strings'. Note that the function returns a list with two
+        # elements.
         return [query_pubchem_fuzzy(s) for s in strings]
 
     def _execute(
@@ -284,22 +500,40 @@ class Mapper(WadiBaseClass):
         columns,
         strings,
     ):
+        """ 
+        This method calls the match methods specified by the user and 
+        reports the results in a DataFrame.
+
+        Parameters
+        ----------
+        columns : list
+            A list with the names of the features (for 'stacked' 
+            data) or columns for 'wide' data. In both cases they
+            correspond to the 'key_0' items in the InfoTable.
+        strings : list
+            A list with strings to be matched. These can be (feature)
+            names or units.
+
+        Returns
+        -------
+        result : dict
+            A dictionary with the aliases (for names) or parsed
+            strings (for units) for each element in 'columns'. 
         """
-        """
-        self._msg(f"{self.i_key.capitalize()} mapping", header=True)
+        self._msg(f"{self._key_1.capitalize()} mapping", header=True)
 
         try:
             strings = StringList(strings)
         except:
             TypeError("Not a valid type")
 
-        if self.m_dict is None:
-            self.m_dict = dict.fromkeys(strings)
+        if self._m_dict is None:
+            self._m_dict = dict.fromkeys(strings)
 
         df = pd.DataFrame({"header": columns, "name": strings})
 
-        strings.replace_strings(self.replace_strings)
-        strings.replace_strings({k: "" for k in self.remove_strings})
+        strings.replace_strings(self._replace_strings)
+        strings.replace_strings({k: "" for k in self._remove_strings})
         strings.strip()  # Remove any leading or trailing whitespace
         df["modified"] = strings
 
@@ -308,11 +542,13 @@ class Mapper(WadiBaseClass):
             strings_t = StringList(strings)
             strings_t.tidy_strings()
 
-            keys_t = StringList(self.m_dict.keys())
-            keys_t.replace_strings(self.replace_strings)
-            keys_t.replace_strings({k: "" for k in self.remove_strings})
+            keys_t = StringList(self._m_dict.keys())
+            keys_t.replace_strings(self._replace_strings)
+            keys_t.replace_strings({k: "" for k in self._remove_strings})
             keys_t.tidy_strings()
-            m_dict_t = {k1: self.m_dict.get(k0) for k0, k1 in zip(self.m_dict, keys_t)}
+            m_dict_t = {
+                k1: self._m_dict.get(k0) for k0, k1 in zip(self._m_dict, keys_t)
+            }
 
             df["tidied"] = strings_t
 
@@ -321,14 +557,6 @@ class Mapper(WadiBaseClass):
         df["alias"] = np.nan  # Stores the alias of the matched item
         df["method"] = np.nan  # Stores the method with which a match was found
 
-        # # Copy only relevant columns from df to dfsub. List comprehension
-        # # is necessary to make a selection because 'tidied' may not occur in
-        # # df if the method is not 'ascii' or 'fuzzy'
-        # cols = [
-        #     c
-        #     for c in ["name", "modified", "tidied", "searched", "found"]
-        #     if c in df.columns
-        # ]
         for m in self.match_method:
             try:
                 # Select only the rows for which no match was found yet
@@ -341,7 +569,7 @@ class Mapper(WadiBaseClass):
                     dfsub["searched"] = dfsub["tidied"]
                 # Call the appropriate match method (a bit verbose for readability)
                 if m == "exact":
-                    res = self._match_exact(dfsub["searched"], self.m_dict)
+                    res = self._match_exact(dfsub["searched"], self._m_dict)
                 elif m == "ascii":
                     res = self._match_exact(dfsub["searched"], m_dict_t)
                 elif m == "regex":
@@ -375,14 +603,14 @@ class Mapper(WadiBaseClass):
                 raise NotImplementedError(f"Match method '{m}' not implemented")
 
         rv_dict = {}
-        if self.i_key == "unit":
+        if self._key_1 == "unit":
             # Transfer the unit strings found to the DataObject's
             # InfoTable by iterating over the 'found' column. The
             # values in the 'header' column match up with the level-0
             # keys of the InfoTable.
             for index, (key_0, u_str) in df[["header", "found"]].dropna().iterrows():
-                rv_dict[key_0] = {'u_str': u_str}
-        elif self.i_key == "name":
+                rv_dict[key_0] = {"u_str": u_str}
+        elif self._key_1 == "name":
             # Transfer the aliases found to the DataObject's
             # InfoTable by iterating over the 'alias' column. The
             # values in the 'header' column match up with the level-0

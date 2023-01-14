@@ -53,8 +53,8 @@ class DataObject(WadiBaseClass):
             value for 'silent'.
         """
 
-        # Call the ancestors initialization method to set the log file
-        # name and output directory. The argument create_file is
+        # Call the ancestor's initialization method to set the log 
+        # file name and output directory. The argument create_file is
         # set to True to ensure that the log_file is written so that
         # other parts of the code can append to it.
         super().__init__(
