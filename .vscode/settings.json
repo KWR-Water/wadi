@@ -5,5 +5,15 @@
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "esbonio.sphinx.confDir": "",
-    "python.formatting.provider": "black"
+    "python.formatting.provider": "black",
+    "spellright.language": [
+        "en"
+    ],
+    "spellright.documentTypes": [
+        "markdown",
+        "latex",
+        "plaintext",
+        "python",
+        "restructuredtext"
+    ]
 }

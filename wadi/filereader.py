@@ -54,11 +54,8 @@ class FileReader(WadiBaseClass):
     ):
 
         """
-        This method initializes a FileReader instance.
-        The kwargs dictionary can contain any valid
-        kwarg that is accepted by the pd_reader function.
-        They are passed verbatim to the _read_data function
-        and are checked for consistency there.
+        This method provides an interface for the user to set the
+        attributes that determine the FileReader object behavior.
 
         Parameters
         ----------

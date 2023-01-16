@@ -7,26 +7,32 @@ from pint.errors import DimensionalityError, UndefinedUnitError
 
 from wadi.base import WadiBaseClass
 
-DEFAULT_RE_DICT0 = {'num': ["[a-zA-Z]*", "\s*"],
-                    'mw0': ["[a-zA-Z0-9]*", "?\s*"],
-                    'div': ["[/.,]", "\s*"],
-                    'den0': ["[0-9]*", "?"],
-                    'den1': ["[a-zA-Z]*", "\s*"],
-                    'mw1': ["[a-zA-Z0-9]*", "?"],
-                   }
-DEFAULT_RE_DICT1 = {'txt': ["[a-zA-Z]*", ""]}
+DEFAULT_RE_DICT0 = {
+    "num": ["[a-zA-Z]*", "\s*"],
+    "mw0": ["[a-zA-Z0-9]*", "?\s*"],
+    "div": ["[/.,]", "\s*"],
+    "den0": ["[0-9]*", "?"],
+    "den1": ["[a-zA-Z]*", "\s*"],
+    "mw1": ["[a-zA-Z0-9]*", "?"],
+}
+DEFAULT_RE_DICT1 = {"txt": ["[a-zA-Z]*", ""]}
+
 
 def dict2str(groupdict):
-    n = groupdict['num']
-    d0 = groupdict['den0']
-    d1 = groupdict['den1']
-    txt = groupdict['txt']
-    w0 = groupdict['mw0']
-    w1 = groupdict['mw1']
+    n = groupdict["num"]
+    d0 = groupdict["den0"]
+    d1 = groupdict["den1"]
+    txt = groupdict["txt"]
+    w0 = groupdict["mw0"]
+    w1 = groupdict["mw1"]
 
-    rv = f"" 
+    # Set return value to None if the groupdict elements do not
+    # contain any unit information or if the 'txt' element has
+    # length zero (happens when an empty string was matched).
+    rv = None
 
     if not all(x is None for x in [n, d0, d1]):
+        rv = f""
         if len(n):
             rv += f"{n}"
         else:
@@ -43,28 +49,31 @@ def dict2str(groupdict):
             rv += f"|{w0}"
         elif len(w1):
             rv += f"|{w1}"
+    elif txt is not None:
+        if len(txt) > 0:
+            rv = txt
 
-    elif (txt is not None):
-        rv += txt
     return rv
+
 
 class UnitRegexMapper:
     def __init__(self, *args, func=dict2str):
         if args:
             self.RE = self._dict2RE(*args)
         else:
-            self.RE = self._dict2RE(DEFAULT_RE_DICT0, 
-                                    DEFAULT_RE_DICT1, 
-                                   )
+            self.RE = self._dict2RE(
+                DEFAULT_RE_DICT0,
+                DEFAULT_RE_DICT1,
+            )
         self.func = func
 
     @staticmethod
     def _dict2RE(*args):
         rv = r""
-        for i, re_dict in enumerate (args):
+        for i, re_dict in enumerate(args):
             if not isinstance(re_dict, dict):
                 raise TypeError(f"argument {re_dict} must be of type dict")
-            if (i == 0):
+            if i == 0:
                 rv += r"^\s*"
             else:
                 rv += r"|^\s*"
@@ -77,20 +86,27 @@ class UnitRegexMapper:
     def str(self, groupdict):
         return self.func(groupdict)
 
+
 class UnitConverter:
+    """
+    Class with some methods for unit parsing and conversion with Pint.
+    """
     def __init__(self):
+        """
+        Class initialization method.
+        """
 
         super().__init__()
 
-        self.ureg = UnitRegistry()
-        self.ureg.default_format = "~"
+        self._ureg = UnitRegistry()
+        self._ureg.default_format = "~"
 
     def _get_mw(
         self,
         s,
     ):
         """
-        This function uses the molmass library to determine the
+        This method uses the molmass library to determine the
         molar mass of a substance.
 
         Parameters
@@ -105,7 +121,7 @@ class UnitConverter:
             was raised from within the molmass library.
         """
         try:
-            return mm.Formula(s).mass * self.ureg('g/mol')
+            return mm.Formula(s).mass * self._ureg("g/mol")
         except FormulaError:
             return None
 
@@ -118,20 +134,39 @@ class UnitConverter:
         """
         Use Pint to determine the value of the unit
         conversion factor.
+
+        Parameters
+        ----------
+        qs : Pint Quantity object
+            The source units (for example 1 mg/l).
+        target_units : str 
+            String that defines the target units.
+        mw : Pint Quantity object
+            The molecular mass in g/mol.
+
+        Returns
+        -------
+        qt : Pint Quantity object
+            The target units
+        uc : Pint Quantity object
+            The unit conversion factor.
         """
         try:
-            qt = self.ureg(target_units)
+            # Convert the target_units string to a Pint Quantity object
+            qt = self._ureg(target_units)
+            # Use the source units 'to' method to determine the unit
+            # conversion factor.
             if mw is None:
                 uc = qs.to(qt)
             else:
-                uc = qs.to(qt, 'chemistry', mw=mw)
+                uc = qs.to(qt, "chemistry", mw=mw)
 
             # Divide uc by qs to get the right dimensions
-            uc /= qs 
+            uc /= qs
         except (AttributeError, DimensionalityError) as e:
             qt = None
             uc = None
-        
+
         return qt, uc
 
     def _str2pint(
@@ -147,7 +182,7 @@ class UnitConverter:
         Parameters
         ----------
         name : str
-            The feature name alias. Also serves as an alternative string 
+            The feature name alias. Also serves as an alternative string
             to determine the molar mass if Pint fails to parse u_str.
         u_str : str
             String representation of the units to be parsed.
@@ -181,14 +216,14 @@ class UnitConverter:
             # Use the partition to split the string at the | symbol.
             s_parts = u_str.partition("|")
             # Convert the units string to a Pint Quantity object
-            uq = self.ureg.Quantity(s_parts[0])
+            uq = self._ureg.Quantity(s_parts[0])
 
             # Store the substance formula in mw_formula.
             mw_formula = s_parts[2]
             # If no formula was specified the length of mw
-            # will be zero and in that case 'name' will be 
+            # will be zero and in that case 'name' will be
             # used instead to look up the molecular mass.
-            if (len(mw_formula) == 0):
+            if len(mw_formula) == 0:
                 mw_formula = name
             mw = self._get_mw(mw_formula)
 
@@ -200,5 +235,4 @@ class UnitConverter:
             # When an error occurs, write a message to the log file and
             # return empty return values.
             msg = f" - Failed to parse unit '{u_str}' with pint for {name}"
-            return None, None, msg    
-        
+            return None, None, msg

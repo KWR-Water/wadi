@@ -5,7 +5,6 @@ from wadi.filereader import FileReader
 
 DEFAULT_OUTPUT_DIR = "wadi_output"
 
-
 class DataObject(WadiBaseClass):
     """
     Class for importing hydrochemical data in a variety of formats. The
@@ -73,7 +72,7 @@ class DataObject(WadiBaseClass):
         # Define placeholder attribute for the InfoTable. The InfoTable
         # is a dict with information about column names, units, datatypes
         # and values. It is initialized when the _execute method of the
-        # FileReader instance is caleld and used by the Harmonizer
+        # FileReader instance is called and used by the Harmonizer
         # to produce the converted DataFrame
         self._infotable = None
 
@@ -140,24 +139,28 @@ class DataObject(WadiBaseClass):
         # Harmonize
         self._converted_df = self.harmonizer._execute(self._infotable)
 
-    def get_frame(self, as_imported=False):
+    def get_converted_dataframe(self):
         """
-        This method returns the converted DataFrame when 'as_imported'
-        is False, or the imported DataFrame (that is, the raw data)
-        when 'as_imported' is True.
+        This method returns the converted DataFrame.
 
-        Parameters
+        Returns
         ----------
-        as_imported : bool, optional
-            When True the imported data are returned. When False the
-            converted data are returned. Default: False.
+        result : DataFrame
+            The converted DataFrame.
         """
-        if as_imported:
-            if self._imported_df is None:
-                return self._execute(import_only=True)
-            return self._imported_df
-        else:
+        self._execute()
+        return self._converted_df
 
-            if self._converted_df is None:
-                self._execute()
-            return self._converted_df
+    def get_imported_dataframe(self):
+        """
+        This method returns the imported DataFrame (that is, the data 
+        'as read').
+
+        Returns
+        ----------
+        result : DataFrame
+            The imported DataFrame.
+        """
+        if self._imported_df is None:
+            self._execute(import_only=True)
+        return self._imported_df

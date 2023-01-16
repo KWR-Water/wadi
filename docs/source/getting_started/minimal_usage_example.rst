@@ -3,10 +3,8 @@ Minimal usage example
 
 This example demonstrates how to import an Excel file with stacked 
 data. It does nothing other than to convert the data from 'stacked'
-to 'wide' format. The dictionary passed with the :code:`c_dict`
-argument informs WaDI about the names of the columns that contain 
-the sample identifiers,  feature names, as well as the concentrations 
-and units.
+to 'wide' format. A more elaborate version of this example is given
+in the :doc:`user guide section <../user_guide/index>`.
 
 .. ipython:: python
     :okexcept:
@@ -15,11 +13,12 @@ and units.
     # Import the library
     import wadi as wd
 
-    # Create an instance of a WaDI DataObject
+    # Create an instance of a WaDI DataObject, specify the log file name
     wdo = wd.DataObject(log_fname='minimal_usage.log', silent=True)
 
-    # Import the data
-    wdo.file_reader('tutorial_data.xlsx',
+    # Import the data. The 'c_dict' dictionary specifies the column names
+    # for the sample identifiers,  feature names, concentrations and units.
+    wdo.file_reader('stacked_data.xlsx',
         format='stacked',
         c_dict={'SampleId': 'Sample number',
                 'Features': 'Parameter description',
@@ -28,11 +27,9 @@ and units.
         },
     )
 
-    # Process the data (converts from 'stacked' to 'wide' format)
-    df = wdo.get_frame()
+    # Get the converted DataFrame
+    df = wdo.get_converted_dataframe()
 
     # Show the result
     df.head()
 
-More complex examples that show the full functionality of WaDI are 
-given in the :doc:`user guide section <../user_guide/index>`.

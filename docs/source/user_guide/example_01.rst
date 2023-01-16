@@ -5,12 +5,16 @@ This example is an extension of the
 :doc:`minimal usage example <../getting_started/minimal_usage_example>`
 and demonstrates how to import an Excel file with stacked 
 data and perform some basic transformations. It is intended to 
-illustrate a typical WaDI workflow.
+illustrate a typical WaDI workflow:
 
-   :ref:`Step 1 Initialize the DataObject class`
-   :ref:`Step 2 Read the data`
-   :ref:`Step 3 Map the data`
-   :ref:`Step 4 Harmonize the data`
+* `Step 1: Initialize the DataObject class`_
+* `Step 2: Read the data`_
+* `Step 3: Map the names`_
+* `Step 4: Harmonize the data`_
+
+.. note::
+  Instructions for importing 'wide' data are provided in 
+  :doc:`this example <../user_guide/example_02>`.
 
 Step 1: Initialize the DataObject class
 ---------------------------------------
@@ -30,12 +34,6 @@ but the optional arguments :code:`log_fname` and :code:`output_dir`
 make it possible to change the name and the output directory of the
 log file that WADI creates. 
 
-.. note::
-    The log file contains information about all the steps it takes 
-    to process the data. Users must always inspect the contents of 
-    this file to ensure that the WaDI methods resulted in the 
-    expected behavior.
-
 .. ipython:: python
     :okexcept:
     :okwarning:
@@ -45,11 +43,18 @@ log file that WADI creates.
 The DataObject class instance is stored as :code:`wdo`, which will be used
 in the next step to read the data from the spreadsheet file.
 
+.. note::
+    The log file contains information about all the steps it takes 
+    to process the data. Users must always inspect the contents of 
+    this file to ensure that the WaDI methods resulted in the 
+    expected behavior.
+
 Step 2: Read the data
 ---------------------
 
-Once the DataObject class has been initialized, its :code:`read_data` method
-can be used to import the data that are in the file. 
+Once the DataObject class has been initialized, its :code:`file_reader` 
+method must be called to specify the name and the structure of the file
+that is to be imported. 
 
 .. ipython:: python
     :okexcept:
@@ -64,44 +69,41 @@ can be used to import the data that are in the file.
         },
     )
 The :code:`format` argument is to indicate if the data are in 
-'stacked' (default) or 'wide' format. If the data are in stacked 
-format, there are four compulsory columns that must be present 
-in the file with the data
+'stacked' format. This means that four compulsory columns must 
+be present in the spreadsheet file
 
-1. SampleId: A unique sample identifier.
+1. SampleId: A unique sample identifier
 2. Features: The names of the features
 3. Units: The (chemical concentration) units
 4. Values: The measured data
 
 Inspection of the spreadsheet file 'stacked_data.xlsx' shows that
 these columns are called 'Sample number', 'Parameter description', 
-'Unit description' and 'Reported value' instead. So for wadi to be 
-able to find the required columns, their names must be mapped.
-This is why the :code:`c_dict` argument (the `c` is shorthand for
-column) is used: It takes a dictionary with the compulsory column 
-names as keys, and each corresponding value contains the column name 
-as it appears in the spreadsheet file.
+'Unit description' and 'Reported value'. Therefore, for wadi to be 
+able to find the compulsory columns, their names must be mapped to
+the column names listed above. This is why the :code:`c_dict` 
+argument (the `c` is shorthand for column) is used: It takes a 
+dictionary with the compulsory column names as keys, and each 
+corresponding value contains the column name as it appears in the 
+spreadsheet file.
 
 .. note::
-  Instructions for importing 'wide' data are provided in 
-  :doc:`this example <../user_guide/messy_data>`.
+    By default, :code:`file_reader` will set the Pandas method 
+    :code:`read_excel` as the importer for the file contents. With the keyword 
+    argument :code:`pd_reader` the name of any Pandas reader function 
+    (for example :code:`read_csv`) can be used instead (note that WaDI 
+    has been designed to work with :code:`read_excel` and 
+    :code:`read_csv`, other functions are not guaranteed to work).
 
-By default, :code:`read_data` will call the Pandas function 
-:code:`read_excel` to import the file contents. With the keyword 
-argument :code:`pd_reader` the name of any Pandas reader function 
-(for example :code:`read_csv`) can be used instead (note that WaDI 
-has been designed to work with :code:`read_excel` and 
-:code:`read_csv`, other functions are not guaranteed to work).
-
-Once the data have been read, the contents of the imported DataFrame
-can be displayed (note that the imported DataFrame has nine rows of
-data).
+The contents of the imported DataFrame can be displayed by calling the
+:code:`get_imported_dataframe()` method of the :code:`wdo` object. Note
+that the imported DataFrame has nine rows of data.
 
 .. ipython:: python
     :okexcept:
     :okwarning:
 
-    df = wdo.get_frame(as_imported=True)
+    df = wdo.get_imported_dataframe()
     df.head(9)
 
 It can be seen that a comma is used as a decimal separator in the
@@ -112,8 +114,8 @@ the laboratory method (ICP-AES). Issues such as these can be remedied
 by mapping the names to new values, which will be demonstrated in the 
 next step.
 
-Step 3: Map the data
---------------------
+Step 3: Map the names
+---------------------
 
 Mapping involves 'translating' the feature names and the units to a 
 desired format. To illustrate the principle, the following mapping
@@ -124,16 +126,15 @@ operations will be performed
 * The text string '(ICP-AES)' will be removed and 'Calcium' will be
   mapped to 'Ca'.
 
-The name mapping is accomplished by defining a dictionary called 
+By assigning the text string '(ICP-AES)' to the :code:`remove_strings` 
+argument (note that this must be within a list, as there could be 
+multiple text strings that need removing), it will be deleted from the
+feature name. The name mapping is accomplished by defining a dictionary called 
 :code:`name_mapper`, which is passed as the :code:`m_dict` argument
-of the :code:`name_map` method. By assigning the text string 
-'(ICP-AES)' to the :code:`remove_strings` argument (note that this
-must be within a list, as there could be multiple text strings that
-need removing), it will be deleted from the final feature name.
+of the :code:`name_map` method. The keys of :code:`m_dict` are the feature
+names to be matched, which will be replaced by the corresponding values.
 
 .. ipython:: python
-    :okexcept:
-    :okwarning:
 
     name_mapper = {'Chloride': 'Cl',
         'Calcium': 'Ca',
@@ -145,36 +146,47 @@ need removing), it will be deleted from the final feature name.
         remove_strings=['(ICP-AES)'], 
     )
 
+Both the 'exact' and 'fuzzy' mapping methods are used to match feature names
+to the keys in :code:`m_dict`. The fuzzy search algorithm finds a match if two
+terms are sufficiently close based on score between 0 and 100 percent. This
+match method will therefore result in a match for the misspelled feature name
+'Sulpate'. The 'exact' match method will find 'Chloride' and 'Calcium'. Neither 
+of these methods will find the organic substances, so their names will remain 
+unchanged.
+
 Step 4: Harmonize the data
 --------------------------
 
 Harmonizing the data can involve several operations (combining 
 features, deleting features, converting units). Here a :code:`harmonizer`
-object it will be added to the WaDI DataObject :code:`wdo`to convert
+object it will be added to the WaDI DataObject :code:`wdo` to convert
 the data format from 'stacked' to 'wide' and to convert the chemical 
 concentrations to mmol/l by setting  :code:`convert_units` to True
 (the default is False).
 
 .. ipython:: python
-    :okexcept:
-    :okwarning:
 
     df = wdo.harmonizer(convert_units=True, 
         target_units='mmol/l',
     )
 
-    df = wdo.get_frame()
-    df.head()
+Finally the result of the operations defined above can be obtained by
+calling the :code:`get_converted_dataframe` method.
 
-Note that the concentrations for the organic substances could not
-be transformed from mass units to molar units because their molar
-mass could not be determined (details are reported in the log file).
-Their concentrations were below the detection limit and were originally
-reported with a comma as a decimal separator. The :code:`harmonize` 
-method automatically recognized the '<' symbol, as well as the decimal 
-separator and replaces it with a dot.
+.. ipython:: python
+
+    df = wdo.get_converted_dataframe()
+    df.head()
 
 The mapping results are summarized in the file 
 'name_mapping_results_wadi_example.xlsx'. In this file it can be
 seen that a match was found for Chloride, Sulpate and Calcium         (ICP-AES). 
 All the other features will keep their original names.
+
+Note that the concentrations for the organic substances could not
+be transformed from mass units to molar units because their molar
+mass could not be determined (details are reported in the log file).
+Their concentrations were below the detection limit (values with a '<' symbol)
+and were originally reported with a comma as a decimal separator. 
+In the converted DataFrame the decimal separator is replaced with a dot.
+

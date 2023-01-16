@@ -6,6 +6,7 @@ import numpy as np
 
 DEFAULT_FUZZY_MINSCORES = {1: 100, 3: 100, 4: 90, 5: 85, 6: 80, 8: 75}
 
+
 def check_arg(arg, valid_args):
     """
     Function that checks if an argument is an element of a list of valid
@@ -28,11 +29,11 @@ def check_arg(arg, valid_args):
     ------
     IndexError
         When no match was found.
-    
+
     Notes
     ------
-    Uses a regular expression that checks if the argument 
-    appears at the start of a string (case-insensitive).
+    Uses a regular expression that checks if the argument appears
+    at the start of a string (case-insensitive).
     """
 
     try:
@@ -41,9 +42,10 @@ def check_arg(arg, valid_args):
     except (ValueError, IndexError) as e:
         raise ValueError(f"invalid argument: '{arg}' must be in {valid_args}")
 
+
 def check_arg_list(arg_list, valid_args):
     """
-    Function that checks if the elements of a list of arguments are 
+    Function that checks if the elements of a list of arguments are
     in a list of valid arguments by calling the function check_arg.
 
     Parameters
@@ -71,9 +73,10 @@ def check_arg_list(arg_list, valid_args):
 
     return [check_arg(a, valid_args) for a in arg_list]
 
+
 def check_if_nested_list(n_list, min_elements=2):
     """
-    Function that checks if all elements of a list are lists with a 
+    Function that checks if all elements of a list are lists with a
     minimum number of elements.
 
     Parameters
@@ -95,28 +98,30 @@ def check_if_nested_list(n_list, min_elements=2):
     if isinstance(n_list, list):
         for l in n_list:
             if isinstance(l, list):
-                if (len(l) < min_elements):
+                if len(l) < min_elements:
                     raise ValueError(error_msg)
             else:
                 raise TypeError(error_msg)
     else:
         raise TypeError("Expected a nested list")
 
+
 class StringList(UserList):
     """
-    Class with functions for lists of strings.
+    Class with convenience methods for lists of strings.
     """
+
     def replace_strings(self, r_dict):
         """
-        Function that modifies the elements of the StringList by 
+        This method modifies the elements of the StringList by
         performing a search and replace based on the elements in
         r_dict.
 
         Parameters
         ----------
         r_dict : dict
-            Dictionary of which the keys are the strings to search for 
-            and the  values are the strings to replace the search values 
+            Dictionary of which the keys are the strings to search for
+            and the  values are the strings to replace the search values
             with.
 
         Raises
@@ -141,33 +146,34 @@ class StringList(UserList):
 
     def strip_parentheses(self):
         """
-        Function that modifies the elements of the StringList by 
-        removing all characters between parentheses and the 
+        This method modifies the elements of the StringList by
+        removing all characters between parentheses and the
         parentheses themselves.
         """
         # The .* in the regular expression indicates zero or more
-        # repetitions (as per the *) of any character except a 
+        # repetitions (as per the *) of any character except a
         # newline (as per the .)
-        self.data = [re.sub('\(.*\)', '', s) for s in self.data]
+        self.data = [re.sub("\(.*\)", "", s) for s in self.data]
 
     def tidy_strings(self):
         """
-        Function that modifies the elements of the StringList by
+        This method modifies the elements of the StringList by
         (i) turning all characters to lowercase (ii) stripping all
         non-ASCII characters and (iii) removing all characters that
         are not letters, numbers or whitespace.
         """
         self.data = [s.lower() for s in self.data]
-        self.data = [s.encode('ascii', 'ignore').decode('ascii') for s in self.data]
+        self.data = [s.encode("ascii", "ignore").decode("ascii") for s in self.data]
         # Regular expression to filter out any character that is not
         # a numeric lowercase or uppercase symbol (the caret inside the
-        # square brackets has the function of the not operator)
-        self.data = [re.sub('[^0-9a-zA-Z\s]', '', s) for s in self.data]
+        # square brackets serves as the not operator).
+        self.data = [re.sub("[^0-9a-zA-Z\s]", "", s) for s in self.data]
+
 
 def valid_kwargs(f, **kwargs):
     """
-    Function that checks if one or more function arguments are valid
-    keyword arguments for function f.
+    This function checks if one or more function arguments are valid
+    keyword arguments for callable 'f'.
 
     Parameters
     ----------
@@ -181,50 +187,49 @@ def valid_kwargs(f, **kwargs):
     result : dict
         Dictionary with only the valid keyword arguments passed in kwargs.
     """
-
     valid_kwargs = inspect.signature(f).parameters
     rv = kwargs
-    for kw in rv.copy(): 
+    for kw in rv.copy():
         if kw not in valid_kwargs:
             rv.pop(kw)
-    
+
     return rv
+
 
 def fuzzy_min_score(s):
     """
-    Function that calculates the minimum score required for a valid
-    match in fuzzywuzzy's extractOne function. The minimum score depends 
-    on the length of s and is calculated based on the string lengths and 
+    This function calculates the minimum score required for a valid
+    match in fuzzywuzzy's extractOne function. The minimum score depends
+    on the length of 's' and is calculated based on the string lengths and
     scores in the DEFAULT_MINSCORES dictionary.
 
     Parameters
     ----------
     s : str
         String for which the minimum score must be determined.
-    
+
     Returns
     -------
     result : float
-        The minimum score for s.    
+        The minimum score for 's'.
     """
-
-    xp = list(DEFAULT_FUZZY_MINSCORES.keys()) #[k for k in DEFAULT_FUZZY_MINSCORES.keys()]
+    xp = list(DEFAULT_FUZZY_MINSCORES.keys())
     fp = [v for v in DEFAULT_FUZZY_MINSCORES.values()]
-    # Use the interp function from NumPy. By default this function 
+    # Use the interp function from NumPy. By default this function
     # yields fp[0] for x < xp[0] and fp[-1] for x > xp[-1]
     return np.interp(len(s), xp, fp)
 
-def _wadi_style_warning(message, 
-    category, 
-    filename, 
-    lineno, 
-    #file=None, 
-    line=None,
-):
+
+def _wadi_style_warning(message):
     """
-    This function formats the warning messages created when 
-    warnings.warn is called from within the _warn method of 
+    This function formats the warning messages created when
+    warnings.warn is called from within the _warn method of
     WadiBaseClass. Note that this function has prescribed
     kwargs, see https://docs.python.org/3/library/warnings.html#warnings.formatwarning
+
+    Parameters
+    ----------
+    message : str
+        The warning message to be displayed.
     """
     return f"WaDI warning: {message}\n"

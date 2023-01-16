@@ -4,7 +4,7 @@ os.chdir("D:\\Users\\postvi\\Documents\\github\\wadi")
 
 import wadi as wd
 
-wdo = wd.DataObject(log_fname="messy_data.log", silent=True)
+wdo = wd.DataObject(log_fname='messy_data.log')
 
 rows2skip = list(range(8)) + [21, 22] + list(range(24, 34))
 df0_kwargs = {
@@ -93,7 +93,7 @@ df = wdo.harmonizer(
     override_units=override_units,
 )
 
-df = wdo.get_frame()
+df = wdo.get_converted_dataframe()
 
 print(df.head())
 

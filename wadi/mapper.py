@@ -60,7 +60,7 @@ DEFAULT_STR2REMOVE = [
     "bij",  # whitespace, string, whitespace
 ]
 
-VALID_MAP_METHODS = ["exact", "ascii", "regex", "fuzzy", "pubchem"]
+VALID_MATCH_METHODS = ["exact", "ascii", "regex", "fuzzy", "pubchem"]
 
 
 class MapperDict(UserDict):
@@ -261,7 +261,7 @@ class Mapper(WadiBaseClass):
             correspond to their respective keys in the dict_1
             elements of the InfoTable, hence the attribute name 'key_1'.
         """
-        # Call the ancestor's initialization method to define the 
+        # Call the ancestor's initialization method to define the
         # generic class attributes and methods.
         super().__init__()
 
@@ -295,14 +295,39 @@ class Mapper(WadiBaseClass):
         regex_map=UnitRegexMapper(),
         replace_strings=None,
         remove_strings=None,
-        strip_parentheses=False,
+        # strip_parentheses=False,
     ):
+        """
+        This method provides an interface for the user to set the
+        attributes that determine the Mapper object behavior.
+
+        Parameters
+        ----------
+        m_dict : MapperDict or dict
+            The dictionary that will map the names to their alias.
+        match_method : str or list
+            One or more names of the match method(s) to be used to find
+            feature and unit names. Valid values include 'exact', 'ascii', 
+            'regex', 'fuzzy', 'pubchem'. Default is 'exact' for name
+            mapping or 'regex' for unit mapping.
+        regex_map : UnitRegexMapper
+            UnitRegexMapper object to be used for mapping when match_method
+            = 'regex'.
+        replace_strings : dict
+            Dictionary for searching and replacing string values in in 
+            the feature names or units. The keys are the search strings 
+            and the values the replacement strings. Default:
+            DEFAULT_STR2REPLACE.
+        remove_strings : list
+            List of strings that need to be deleted from the feature names
+            or units. Default: DEFAULT_STR2REMOVE.
+        """
 
         if self._key_1 == "name":
             self.match_method = match_method or ["exact"]
         elif self._key_1 == "unit":
             self.match_method = match_method or ["regex"]
-        self.match_method = check_arg_list(self.match_method, VALID_MAP_METHODS)
+        self.match_method = check_arg_list(self.match_method, VALID_MATCH_METHODS)
 
         if isinstance(m_dict, dict):
             self._m_dict = MapperDict(m_dict)
@@ -314,17 +339,17 @@ class Mapper(WadiBaseClass):
         self._regex_map = regex_map
 
         # Define some of the string manipulation attributes
-        self._strip_parentheses = strip_parentheses
         self._replace_strings = replace_strings or DEFAULT_STR2REPLACE
         self._remove_strings = remove_strings or DEFAULT_STR2REMOVE
+        # self._strip_parentheses = strip_parentheses
 
     def _df2excel(self, df):
         """
         This method creates an ExcelWriter instance that will either
-        append a worksheet to an existing Excel file (for example 
+        append a worksheet to an existing Excel file (for example
         when units arevmapped after names) or creates a new Excel
-        file when it does not yet exist (when mapping is performed 
-        for the first time). Any sheets in an already-existing file 
+        file when it does not yet exist (when mapping is performed
+        for the first time). Any sheets in an already-existing file
         will get overwritten through the use of if_sheet_exists='replace'.
 
         Parameters
@@ -397,7 +422,7 @@ class Mapper(WadiBaseClass):
         Returns
         -------
         result : list
-            A nested list which for each element in 'strings' 
+            A nested list which for each element in 'strings'
             contains a two-item list, the first element being
             the key that was matched, the second element being
             the corresponding value from m_dict.
@@ -407,7 +432,7 @@ class Mapper(WadiBaseClass):
     def _match_regex(self, strings):
         """
         This method returns the strings returned by the RegexMapper
-        which tries to match and parse the elements in 'strings' 
+        which tries to match and parse the elements in 'strings'
         using a regular expression.
 
         Parameters
@@ -418,7 +443,7 @@ class Mapper(WadiBaseClass):
         Returns
         -------
         result : list
-            A nested list which for each element in 'strings' 
+            A nested list which for each element in 'strings'
             contains a two-item list, the first element being
             the string produced by the RegexMapper, the second
             element being None.
@@ -447,14 +472,14 @@ class Mapper(WadiBaseClass):
         Returns
         -------
         result : list
-            A nested list which for each element in 'strings' 
+            A nested list which for each element in 'strings'
             contains a two-item list, the first element being
             the key that was matched (alongside with the score),
-            the second element being the corresponding value from 
+            the second element being the corresponding value from
             m_dict.
         """
         # Create a lambda function to call the extractOne function
-        # for an element in 'strings'. 
+        # for an element in 'strings'.
         fuzzy_score = lambda s: fwp.extractOne(
             s,
             list(m_dict.keys()),
@@ -473,19 +498,19 @@ class Mapper(WadiBaseClass):
 
     def _match_pubchem(self, strings):
         """
-        This method tries to look up the first compound returned by 
+        This method tries to look up the first compound returned by
         a call to PubChem's autocomplete API and its synonym.
 
         Parameters
         ----------
         strings : list
-            A list with strings for which to look up the PubChem 
+            A list with strings for which to look up the PubChem
             compound and synonym.
 
         Returns
         -------
         result : list
-            A nested list which for each element in 'strings' 
+            A nested list which for each element in 'strings'
             contains a two-item list, the first element being
             the first compound returned by the PubChem autocomplete
             API, the second element being the corresponding synonym.
@@ -500,14 +525,15 @@ class Mapper(WadiBaseClass):
         columns,
         strings,
     ):
-        """ 
-        This method calls the match methods specified by the user and 
-        reports the results in a DataFrame.
+        """
+        This method calls the match methods specified by the user and
+        saves a summary of the results in an Excel file. The results
+        are passe back to WaDI's DataObject in a dictionary.
 
         Parameters
         ----------
         columns : list
-            A list with the names of the features (for 'stacked' 
+            A list with the names of the features (for 'stacked'
             data) or columns for 'wide' data. In both cases they
             correspond to the 'key_0' items in the InfoTable.
         strings : list
@@ -518,109 +544,133 @@ class Mapper(WadiBaseClass):
         -------
         result : dict
             A dictionary with the aliases (for names) or parsed
-            strings (for units) for each element in 'columns'. 
+            strings (for units) for each element in 'columns'.
         """
         self._msg(f"{self._key_1.capitalize()} mapping", header=True)
 
+        # Convert the input strings to a StringList (which has special
+        # methods to modify the string elements of the list).
         try:
             strings = StringList(strings)
         except:
             TypeError("Not a valid type")
 
+        # If the user didn't specify a mapping dictionary, create one
+        # using the input strings as keys (the values will all be None).
         if self._m_dict is None:
             self._m_dict = dict.fromkeys(strings)
 
+        # Create a DataFrame that will contain a summary of the results.
         df = pd.DataFrame({"header": columns, "name": strings})
 
+        # Use the StringList method replace_string to replace and remove
+        # strings as specified by the user.
         strings.replace_strings(self._replace_strings)
         strings.replace_strings({k: "" for k in self._remove_strings})
-        strings.strip()  # Remove any leading or trailing whitespace
+        # Remove any leading or trailing whitespace
+        strings.strip()
+        # Store the modified strings in df
         df["modified"] = strings
 
         # Check if 'ascii' or 'fuzzy' were passed
         if any([m in ["ascii", "fuzzy"] for m in self.match_method]):
+            # Create a new StringList object and call the tidy_strings,
+            # (converts all characters to lowercase and removes all
+            # non-ASCII characters, as well as characters that are
+            # not letters, numbers or whitespace).
             strings_t = StringList(strings)
             strings_t.tidy_strings()
+            # Add the tidied strings to df
+            df["tidied"] = strings_t
 
+            # Define a new mapping dictionary for which the keys are
+            # tidied versions of the keys of the mapping dictionary
+            # specified by the user. Repeats the same methods that
+            # were used to create strings_t, but now for the keys of
+            # m_dict.
             keys_t = StringList(self._m_dict.keys())
             keys_t.replace_strings(self._replace_strings)
             keys_t.replace_strings({k: "" for k in self._remove_strings})
+            keys_t.strip()
             keys_t.tidy_strings()
             m_dict_t = {
                 k1: self._m_dict.get(k0) for k0, k1 in zip(self._m_dict, keys_t)
             }
 
-            df["tidied"] = strings_t
+        # Add columns to df that will be populated after calling the
+        # match method(s).
+        df["searched"] = np.nan  # Stores the item that was searched,
+        df["found"] = np.nan  # the item that was found,
+        df["alias"] = np.nan  # the alias of the found item,
+        df["method"] = np.nan  # and the method by which the match was found.
 
-        df["searched"] = np.nan  # Stores the item that was searched
-        df["found"] = np.nan  # Stores the item that was matched
-        df["alias"] = np.nan  # Stores the alias of the matched item
-        df["method"] = np.nan  # Stores the method with which a match was found
-
+        # Iterate over the specified match methods.
         for m in self.match_method:
-            try:
-                # Select only the rows for which no match was found yet
-                idx = df["alias"].isnull()
-                dfsub = df.loc[idx, df.columns].copy()
-                # The term to be matched depends on the method
-                if m in ["exact", "regex", "pubchem"]:
-                    dfsub["searched"] = dfsub["modified"]
-                else:  # m is ascii or fuzzy
-                    dfsub["searched"] = dfsub["tidied"]
-                # Call the appropriate match method (a bit verbose for readability)
-                if m == "exact":
-                    res = self._match_exact(dfsub["searched"], self._m_dict)
-                elif m == "ascii":
-                    res = self._match_exact(dfsub["searched"], m_dict_t)
-                elif m == "regex":
-                    res = self._match_regex(dfsub["searched"])
-                elif m == "fuzzy":
-                    res = self._match_fuzzy(dfsub["searched"], m_dict_t)
-                elif m == "pubchem":
-                    res = self._match_pubchem(dfsub["searched"])
-                else:
-                    raise NotImplementedError
+            # Select only the rows for which no match was found yet
+            idx = df["alias"].isnull()
+            dfsub = df.loc[idx, df.columns].copy()
+            # The terms to be matched depends on the method
+            if m in ["exact", "regex", "pubchem"]:
+                dfsub["searched"] = dfsub["modified"]
+            else:  # m is ascii or fuzzy
+                dfsub["searched"] = dfsub["tidied"]
+            # Call the appropriate match method (a bit verbose for readability)
+            if m == "exact":
+                res = self._match_exact(dfsub["searched"], self._m_dict)
+            elif m == "ascii":
+                res = self._match_exact(dfsub["searched"], m_dict_t)
+            elif m == "regex":
+                res = self._match_regex(dfsub["searched"])
+            elif m == "fuzzy":
+                res = self._match_fuzzy(dfsub["searched"], m_dict_t)
+            elif m == "pubchem":
+                res = self._match_pubchem(dfsub["searched"])
+            else:
+                raise NotImplementedError
 
-                # Store the aliases of the matched values in 'alias' column
-                dfsub[["found", "alias"]] = res
-                # dfsub['alias'] = res[1]
-                # Only place method in 'method' column if an alias was found
-                idx = ~dfsub["alias"].isnull()
-                dfsub.loc[idx, "method"] = m
-                # Update the main df with the values in dfsub
-                df.update(dfsub)
+            # Store the matched strings in the 'found' column and
+            # their aliases in the 'alias' columns. Note that the
+            # regex match method does not set the unit aliases.
+            dfsub[["found", "alias"]] = res
+            # Only place method in the 'method' column if a match
+            # was found.
+            idx = ~dfsub["found"].isnull()
+            dfsub.loc[idx, "method"] = m
+            # Update the main df with the values in dfsub.
+            df.update(dfsub)
 
-                self._log(f"* Match method '{m}' yielded the following results:")
-                for name, searched, found, alias in zip(
-                    dfsub["name"], dfsub["searched"], dfsub["found"], dfsub["alias"]
-                ):
-                    if found is not None:
-                        self._log(
-                            f" - {name}: Searched {searched}, found {found}, alias {alias}."
-                        )
+            # Write an overview of the match method's results to the
+            # log file.
+            self._log(f"* Match method '{m}' yielded the following results:")
+            for name, searched, found, alias in zip(
+                dfsub["name"], dfsub["searched"], dfsub["found"], dfsub["alias"]
+            ):
+                if found is not None:
+                    self._log(
+                        f" - {name}: Searched {searched}, found {found}, alias {alias}."
+                    )
 
-            except NotImplementedError:
-                raise NotImplementedError(f"Match method '{m}' not implemented")
+        # Write the logged messages to the log file and the DataFrame
+        # to the Excel file
+        self.update_log_file()
+        self._df2excel(df)
 
+        # Create the functions return value (a dictionary with the name
+        # aliases or parsed unit strings).
         rv_dict = {}
-        if self._key_1 == "unit":
-            # Transfer the unit strings found to the DataObject's
-            # InfoTable by iterating over the 'found' column. The
-            # values in the 'header' column match up with the level-0
-            # keys of the InfoTable.
-            for index, (key_0, u_str) in df[["header", "found"]].dropna().iterrows():
-                rv_dict[key_0] = {"u_str": u_str}
-        elif self._key_1 == "name":
+        if self._key_1 == "name":
             # Transfer the aliases found to the DataObject's
             # InfoTable by iterating over the 'alias' column. The
             # values in the 'header' column match up with the level-0
             # keys of the InfoTable.
             for index, (key_0, alias) in df[["header", "alias"]].dropna().iterrows():
                 rv_dict[key_0] = {"alias_n": alias}
-
-        # Write the logged messages to the log file and the DataFrame
-        # to the Excel file
-        self.update_log_file()
-        self._df2excel(df)
+        elif self._key_1 == "unit":
+            # Transfer the unit strings found to the DataObject's
+            # InfoTable by iterating over the 'found' column. The
+            # values in the 'header' column match up with the level-0
+            # keys of the InfoTable.
+            for index, (key_0, u_str) in df[["header", "found"]].dropna().iterrows():
+                rv_dict[key_0] = {"u_str": u_str}
 
         return rv_dict

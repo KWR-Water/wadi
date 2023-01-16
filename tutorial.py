@@ -13,6 +13,8 @@ wdo.file_reader('docs/stacked_data.xlsx',
             'Values': 'Reported value',
     },
 )
+df = wdo.get_imported_dataframe()
+print(df.head())
 
 name_mapper = {'Chloride': 'Cl',
     'Calcium': 'Ca',
@@ -26,7 +28,6 @@ wdo.name_map(m_dict=name_mapper,
 wdo.harmonizer(convert_units=True,
     target_units='mmol/l',
 )
-
-df = wdo.get_frame()
+df = wdo.get_converted_dataframe()
 
 print(df.head())

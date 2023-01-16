@@ -207,6 +207,20 @@ class InfoTable(UserDict):
         return rv[:-1] # Remove trailing carriage return
 
     def update_items(self, a_dict):
+        """
+        This method iterates over the level-0 items of the dictionary
+        and updates the level-1 dictionaries with the items in a_dict.
+
+        Parameters
+        ----------
+        a_dict : dict
+            Nested dictionary of which they keys correspond to the 
+            level-0 keys of the current dictionary. Its values are
+            level-1 dictionaries. The level-1 items of the current
+            dictionary will be updated with those from a_dict. The
+            item values of the current dictionary are not overwritten
+            if an item_value in a_dict is None.
+        """
         for key_0, dict_1 in a_dict.items():
             for key_1, value in dict_1.items():
                 if value is not None:

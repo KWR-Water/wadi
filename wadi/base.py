@@ -79,6 +79,10 @@ class WadiBaseClass(ABC):
     
     @abstractmethod
     def _execute(self):
+        """
+        This method must be implemented by all WaDI classes that derive
+        from this class.
+        """
         pass
 
     def _log(
@@ -128,7 +132,7 @@ class WadiBaseClass(ABC):
                 Text string to be printed to the screen and written to
                 the log file.
             **kwargs : dict, optional
-                Any keyword argumetns to be passed onto _log_str.
+                Any keyword arguments to be passed onto _log_str.
         """
 
         if not self._silent:
