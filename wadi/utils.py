@@ -110,6 +110,17 @@ class StringList(UserList):
     """
     Class with convenience methods for lists of strings.
     """
+    def __init__(self, initlist=None):
+        """
+        Class initialization method. Ensures that all items are of type str.
+
+        Parameters
+        ----------
+        initlist : list
+            List of items to add to the StringList.
+        """
+        if initlist is not None: 
+            super().__init__([str(s) for s in initlist])
 
     def replace_strings(self, r_dict):
         """
@@ -140,7 +151,7 @@ class StringList(UserList):
     def strip(self):
         """
         This method removes all leading or trailing whitespace from
-        the strings in the list.
+        the string items in the list.
         """
         self.data = [s.strip() for s in self.data]
 

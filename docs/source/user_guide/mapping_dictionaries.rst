@@ -1,14 +1,14 @@
 Creating mapping dictionaries
 =============================
 
-.. ipython:: python
+.. .. ipython:: python
 
-    import wadi as wd
+..     import wadi as wd
 
-    m_dict = wd.MapperDict.default_dict('SIKB', 'ValidCid')
-    m_dict = {k, v for i, (k, v) in enumerate(m_dict.items())}
-    for i, (key, value) in enumerate(m_dict.items()):
-        print(key,value)
+..     m_dict = wd.MapperDict.default_dict('SIKB', 'ValidCid')
+..     m_dict = {k, v for i, (k, v) in enumerate(m_dict.items())}
+..     for i, (key, value) in enumerate(m_dict.items()):
+..         print(key,value)
 
-    .. t_dict = m_dict.translate_keys()
-    .. print(t_dict.keys())
+..     .. t_dict = m_dict.translate_keys()
+..     .. print(t_dict.keys())

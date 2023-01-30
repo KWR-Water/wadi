@@ -71,11 +71,8 @@ class WadiBaseClass(ABC):
         # line with a timestamp will be written. Note that _log_str
         # is reset to "" by the function update_log_file
         if create_file:
-            self._log("WADI log file", timestamp=True)
+            self._log("WaDI log file", timestamp=True)
             self.update_log_file(mode="w")
-
-        # Override the standard formatting of warnings on the screen.
-        warnings.formatwarning = _wadi_style_warning
     
     @abstractmethod
     def _execute(self):
@@ -154,6 +151,8 @@ class WadiBaseClass(ABC):
                 the log file.
         """
 
+        # Override the standard formatting of warnings on the screen.
+        #warnings.formatwarning = _wadi_style_warning
         warnings.warn(s) 
         self._log_str += f"Warning: {s}\n"
 

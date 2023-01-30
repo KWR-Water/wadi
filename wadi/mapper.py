@@ -127,11 +127,14 @@ class MapperDict(UserDict):
         dfj = pd.read_json(Path(filepath, "default_feature_map.json"))
         # Use the DataFrame's explode function to transform any keys
         # that are a list (or list-like) into a row. The corresponding
-        # value is duplicated for each element in the list that becomes
-        # a row.
+        # value is duplicated for each list element that becomes a row.
         dfd = dfj[[keys, values]].explode(keys).dropna()
-        # Return the DataFrame as a dictionary.
-        return cls(dfd.set_index(keys)[values].to_dict())
+        # Convert the DataFrame to a dictionary
+        rv_dict = dfd.set_index(keys)[values].to_dict()
+        # Values are lists, gives problems when they become aliases so
+        # keep only first list element if there are multiple.
+        rv_dict = {k: str(v[0]) for k, v in rv_dict.items()}
+        return cls(rv_dict)
 
     @classmethod
     def pubchem_cas_dict(cls, strings):
@@ -194,6 +197,43 @@ class MapperDict(UserDict):
 
         return cls(rv_dict)
 
+    @classmethod
+    def translation_dict(
+        cls,
+        strings,
+        src_lang="NL",
+        dst_lang="EN",
+        max_attempts=10,
+    ):
+        """
+        This method attempts to create a mapping dictionary with
+        'strings' being the keys and their translations being the
+        values.
+
+        Parameters
+        ----------
+        strings : list
+            List with the strings to translate.
+        src_lang : str, optional
+            String that specifies the language to translate from.
+            Default: "NL".
+        dst_lang : str, optional
+            String that specifies the language to translate to.
+            Default: "EN".
+        max_attempts : int, optional
+            The maximum number of attempts to connect to the Google
+            Translate API. Default: 10.
+        """
+
+        translated_strings = translate_strings(
+            strings, src_lang, dst_lang, max_attempts
+        )
+        if translated_strings is not None:
+            rv_dict = {
+                k: v for k, v in zip(strings, translated_strings)
+            }
+            return cls(rv_dict)
+
     def to_file(self, file_path):
         """
         This method saves the contents of the dictionary as a json
@@ -238,8 +278,23 @@ class MapperDict(UserDict):
                 k: v for k, v in zip(translated_keys, self.data.values())
             }
             self.data = translated_dict
+    
+    def __str__(self):
+        """
+        This method provides the string representation of the
+        mapping dictionary.
 
-
+        Returns
+        ----------
+        result : str
+            String that provides an overview of the keys and the values of
+            the mapping dictionary.
+        """
+        rv = f"This mapping dictionary contains the following {len(self.data)} items:\n"
+        for key, value in self.data.items():
+            rv += f" - {key} --> {value}\n"        
+        
+        return rv
 class Mapper(WadiBaseClass):
     """
     WaDI class that implements the operations to map feature names
@@ -347,7 +402,7 @@ class Mapper(WadiBaseClass):
         """
         This method creates an ExcelWriter instance that will either
         append a worksheet to an existing Excel file (for example
-        when units arevmapped after names) or creates a new Excel
+        when units are mapped after names) or creates a new Excel
         file when it does not yet exist (when mapping is performed
         for the first time). Any sheets in an already-existing file
         will get overwritten through the use of if_sheet_exists='replace'.
@@ -562,7 +617,7 @@ class Mapper(WadiBaseClass):
 
         # Create a DataFrame that will contain a summary of the results.
         df = pd.DataFrame({"header": columns, "name": strings})
-
+        
         # Use the StringList method replace_string to replace and remove
         # strings as specified by the user.
         strings.replace_strings(self._replace_strings)
@@ -607,7 +662,9 @@ class Mapper(WadiBaseClass):
         # Iterate over the specified match methods.
         for m in self.match_method:
             # Select only the rows for which no match was found yet
-            idx = df["alias"].isnull()
+            idx = df["found"].isnull()
+            if all(idx == False):
+                break
             dfsub = df.loc[idx, df.columns].copy()
             # The terms to be matched depends on the method
             if m in ["exact", "regex", "pubchem"]:

@@ -163,7 +163,7 @@ class InfoTable(UserDict):
         # Assign 'value' to element 'key'.
         self.data[key] = value
 
-    def list(self, item):
+    def list_dict1_item(self, item):
         """
         This function iterates over all the (sub-)dictionaries in
         the InfoTable and retrieves the value of element 'item'. All
@@ -181,6 +181,17 @@ class InfoTable(UserDict):
             (sub-)dictionaries of the InfoTable.
         """
         return [i[item] for i in self.data.values()]
+
+    def list_keys(self):
+        """
+        This function returns the level-0 keys (key0) as a list.
+
+        Returns
+        ----------
+        result : list
+            List of the level-0 keys of the InfoTable.
+        """
+        return list(self.data.keys())
 
     def __str__(self):
         """

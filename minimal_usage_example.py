@@ -5,7 +5,7 @@ import wadi as wd
 
 wdo = wd.DataObject(log_fname='wadi_tutorial.log')
 
-wdo.file_reader('docs/tutorial_data.xlsx',
+wdo.file_reader('docs/stacked_data.xlsx',
     format='stacked',
     c_dict={'SampleId': 'Sample number',
             'Features': 'Parameter description',
@@ -28,6 +28,6 @@ name_mapper = {'Chloride': 'Cl',
 #     target_units='mmol/l',
 # )
 
-df = wdo.get_frame()
+df = wdo.get_converted_dataframe()
 
 print(df.head())

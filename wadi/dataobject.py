@@ -126,13 +126,13 @@ class DataObject(WadiBaseClass):
 
         # Map names
         info_table_items = self.name_map._execute(
-            self._infotable.keys(), self._infotable.list("name")
+            self._infotable.list_keys(), self._infotable.list_dict1_item("name")
         )
         self._infotable.update_items(info_table_items)
 
         # Map units
         info_table_items = self.unit_map._execute(
-            self._infotable.keys(), self._infotable.list("unit")
+            self._infotable.list_keys(), self._infotable.list_dict1_item("unit")
         )
         self._infotable.update_items(info_table_items)
 
@@ -164,3 +164,17 @@ class DataObject(WadiBaseClass):
         if self._imported_df is None:
             self._execute(import_only=True)
         return self._imported_df
+
+    def get_imported_names(self):
+        """
+        This method returns the imported DataFrame (that is, the data 
+        'as read').
+
+        Returns
+        ----------
+        result : DataFrame
+            The imported DataFrame.
+        """
+        if self._infotable is None:
+            self._execute(import_only=True)
+        return self._infotable.list_dict1_item('name')

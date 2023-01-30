@@ -1,24 +1,48 @@
-import re
-
 import molmass as mm
 from molmass.molmass import FormulaError
 from pint import UnitRegistry
 from pint.errors import DimensionalityError, UndefinedUnitError
 
-from wadi.base import WadiBaseClass
+from wadi.api_utils import get_pubchem_molecular_weight
 
+# DEFAULT_RE_DICT0 is the default dictionary to create a regular 
+# expression for matching chemical concentration units. It is 
+# designed to recognize variants such as mg/l, mg N/l or mg/l N. 
+# Each element is a list, the first element being the character set 
+# to match, the second element being the separator that follows.
 DEFAULT_RE_DICT0 = {
-    "num": ["[a-zA-Z]*", "\s*"],
-    "mw0": ["[a-zA-Z0-9]*", "?\s*"],
-    "div": ["[/.,]", "\s*"],
-    "den0": ["[0-9]*", "?"],
-    "den1": ["[a-zA-Z]*", "\s*"],
-    "mw1": ["[a-zA-Z0-9]*", "?"],
+    # Elements before the separator:
+    # - descriptor (e.g. mg in mg/l) 
+    "num": ["[a-zA-Z]*", "\s*"], 
+    # - formula for molar mass (e.g. N in mg N/l) 
+    "mw0": ["[a-zA-Z0-9]*", "?\s*"], 
+    # Separator:
+    "div": ["[/.,]", "\s*"], 
+    # Elements following the separator:
+    # - a number (e.g. 50 in cfu/50ml)
+    "den0": ["[0-9]*", "?"], 
+    # - descriptor (e.g. l in mg/l)
+    "den1": ["[a-zA-Z]*", "\s*"], 
+    # - formula for molar mass (e.g. NO3 in mg/l NO3)
+    "mw1": ["[a-zA-Z0-9]*", "?"], 
 }
+# DEFAULT_RE_DICT1 is a dictionary to create a regular 
+# expression that matches simple text.
 DEFAULT_RE_DICT1 = {"txt": ["[a-zA-Z]*", ""]}
 
 
 def dict2str(groupdict):
+    """
+    This function attempts to create a string that can be parsed by
+    Pint based on the elements of a dictionary that is returned by
+    the regex match method in Mapper._match_regex. This function works
+    only for the default dictionaries defined above and creates a
+    string specifically formatted for the _str2pint method in the 
+    UnitConverter class.
+    """
+
+    # Store the elements of the dictionary as local variables for 
+    # shorter code lines
     n = groupdict["num"]
     d0 = groupdict["den0"]
     d1 = groupdict["den1"]
@@ -31,25 +55,36 @@ def dict2str(groupdict):
     # length zero (happens when an empty string was matched).
     rv = None
 
+    # Check if at least a numerator and/or one of the denominators
+    # is contained in the dictionary with matched terms. 
     if not all(x is None for x in [n, d0, d1]):
+        # Create an empty formatted string
         rv = f""
+        # Add the numerator to rv if a match was found for it, else add '1'.
         if len(n):
             rv += f"{n}"
         else:
             rv += f"1"
+        # Add a '/(' and the first denominator to rv if a match was found for
+        # it, else add '/ (1'.
         if len(d0):
             rv += f" / ({d0}"
         else:
             rv += f" / (1"
+        # Add the second denominator and a closing parenthesis to rv 
+        # if a match was found for it, else add just a closing parenthesis.
         if len(d1):
             rv += f"{d1})"
         else:
             rv += f")"
+        # Add the formula that was found for the molar mass (if any was matched). 
+        # It is separated from the unit string by a vertical bar, which is what
+        # the _str2pint method in the UnitConverter class expects.  
         if len(w0):
             rv += f"|{w0}"
         elif len(w1):
             rv += f"|{w1}"
-    elif txt is not None:
+    elif txt is not None: # Return any text string if one was matched.
         if len(txt) > 0:
             rv = txt
 
@@ -57,7 +92,21 @@ def dict2str(groupdict):
 
 
 class UnitRegexMapper:
+    """
+    Class to make working with regular expressions to match units a little
+    bit easier (not easy).
+    """
+
     def __init__(self, *args, func=dict2str):
+        """
+        Class initialization method. Defines the dictionaries used to create
+        the regular expressions to match the unit strings with, as well as the 
+        function to translate the groupdicts returned by the match method to a
+        string that can be used by the _str2pint method in the UnitConverter 
+        class.
+        """
+        # Check if any dictionaries were passed as arguments, else use the 
+        # default dictionaries defined above.
         if args:
             self.RE = self._dict2RE(*args)
         else:
@@ -65,10 +114,18 @@ class UnitRegexMapper:
                 DEFAULT_RE_DICT0,
                 DEFAULT_RE_DICT1,
             )
+        # Set the function to be used for translating the groupdicts returned
+        # by the match method to a string for the _str2pint method in the 
+        # UnitConverter class.
         self.func = func
 
     @staticmethod
     def _dict2RE(*args):
+        """
+        This function creates a string with a regular expression for parsing
+        (chemical concentration) units. For more details on group names see 
+        https://docs.python.org/3/library/re.html
+        """
         rv = r""
         for i, re_dict in enumerate(args):
             if not isinstance(re_dict, dict):
@@ -84,6 +141,11 @@ class UnitRegexMapper:
         return rv
 
     def str(self, groupdict):
+        """
+        This function is simply a wrapper that returns the string
+        created by the function that translates the groupdicts 
+        returned by the match method to a string that can be used by
+        the _str2pint method in the UnitConverter class."""
         return self.func(groupdict)
 
 
@@ -120,10 +182,14 @@ class UnitConverter:
             The molar mass in g/mole, or None if  a FormulaError
             was raised from within the molmass library.
         """
+        rv = None
         try:
-            return mm.Formula(s).mass * self._ureg("g/mol")
-        except FormulaError:
-            return None
+            rv = mm.Formula(s).mass * self._ureg("g/mol")
+        except FormulaError as e:
+            print(f" - Could not retrieve molar mass {s} with molmass library. Trying PubChem...")
+            rv = get_pubchem_molecular_weight(s) * self._ureg("g/mol")
+            
+        return rv
 
     def get_uc(
         self,
@@ -226,6 +292,8 @@ class UnitConverter:
             if len(mw_formula) == 0:
                 mw_formula = name
             mw = self._get_mw(mw_formula)
+            if mw is None:
+                mw = get_pubchem_molecular_weight(mw_formula)
 
             # Write a message to the log file
             msg = f" - Successfully parsed unit '{u_str}' with pint for {name}"

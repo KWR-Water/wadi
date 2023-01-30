@@ -281,10 +281,42 @@ def query_pubchem_cas(s, namespace="name", allow_multiple=False):
         return None
 
 
+def get_pubchem_molecular_weight(s, namespace="name"):
+    """
+    This method uses the PubChem REST API service to look up the molecular
+    weight of a PubChem compound based on its name or other allowed namespace.
+    See https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest#section=Input.
+
+    Parameters
+    ----------
+    s : str
+        The string to look up
+    namespace : str, optional
+        The namespace to seach for (for example, 'name', 'cid',
+        'smiles', ...). Default: 'name'
+
+    Returns
+    -------
+    result : float
+        The return value is the 'MolecularWeight' item of the json dict returned by PubChem or None
+        if an error occurred.
+    """
+    # Insert 's' and 'namespace' into the URL.
+    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/{namespace}/{s}/property/MolecularWeight/json"
+    # Get the json dict, return None if an error occurred.
+    js = get_pubchem_json(url)
+    if js is None:
+        return None
+    if len(js["PropertyTable"]["Properties"]) > 0:
+        # Return the MolecularWeight property.
+        return float(js["PropertyTable"]["Properties"][0]["MolecularWeight"])
+    else:
+        return None
+        
 def get_pubchem_properties(cids, props):
     """
     This method uses the PubChem REST API service to retrieve a table of
-    compound properties for one or more compounds.
+    compound properties for one or more compounds based on their cid(s).
 
     Parameters
     ----------
@@ -296,8 +328,8 @@ def get_pubchem_properties(cids, props):
 
     Returns
     -------
-    result : dict
-        A dictionary with the requested properties, or None if the request
+    result : list
+        A list with the requested properties, or None if the request
         was unsuccessful.
     """
     # Ensure that cids is a list.
