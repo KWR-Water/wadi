@@ -187,7 +187,9 @@ class UnitConverter:
             rv = mm.Formula(s).mass * self._ureg("g/mol")
         except FormulaError as e:
             print(f" - Could not retrieve molar mass {s} with molmass library. Trying PubChem...")
-            rv = get_pubchem_molecular_weight(s) * self._ureg("g/mol")
+            rv = get_pubchem_molecular_weight(s) 
+            if rv is not None:
+                rv = rv * self._ureg("g/mol")
             
         return rv
 
@@ -195,7 +197,7 @@ class UnitConverter:
         self,
         qs,
         target_units,
-        mw,
+        mw_formula,
     ):
         """
         Use Pint to determine the value of the unit
@@ -207,8 +209,9 @@ class UnitConverter:
             The source units (for example 1 mg/l).
         target_units : str 
             String that defines the target units.
-        mw : Pint Quantity object
-            The molecular mass in g/mol.
+        mw_formula : str
+            Chemical formula with which to convert
+            between mass and molar concentration units.
 
         Returns
         -------
@@ -220,6 +223,11 @@ class UnitConverter:
         try:
             # Convert the target_units string to a Pint Quantity object
             qt = self._ureg(target_units)
+            # Determine the molecular mass in g/mol.
+            mw = self._get_mw(mw_formula)
+            if mw is None:
+                mw = get_pubchem_molecular_weight(mw_formula)
+
             # Use the source units 'to' method to determine the unit
             # conversion factor.
             if mw is None:
@@ -257,8 +265,9 @@ class UnitConverter:
         ----------
         uq : Pint Quantity object
             The units represented as Pint Quantity object.
-        mw : Pint Quantity object
-            The molecular mass of the substance.
+        mw_formula : str
+            The chemical formula of the substance, to be used in get_uc
+            to convert between mass and molar concentration units.
         msg : str
             A message intended for the log file.
 
@@ -291,14 +300,11 @@ class UnitConverter:
             # used instead to look up the molecular mass.
             if len(mw_formula) == 0:
                 mw_formula = name
-            mw = self._get_mw(mw_formula)
-            if mw is None:
-                mw = get_pubchem_molecular_weight(mw_formula)
 
             # Write a message to the log file
             msg = f" - Successfully parsed unit '{u_str}' with pint for {name}"
 
-            return uq, mw, msg
+            return uq, mw_formula, msg
         except (AttributeError, TypeError, UndefinedUnitError, ValueError):
             # When an error occurs, write a message to the log file and
             # return empty return values.

@@ -1,5 +1,5 @@
-Minimal usage example
-=====================
+Minimal working example
+=======================
 
 This example demonstrates how to import an Excel file with stacked 
 data. It does nothing other than to convert the data from 'stacked'

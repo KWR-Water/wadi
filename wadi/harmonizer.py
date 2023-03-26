@@ -280,7 +280,7 @@ class Harmonizer(WadiBaseClass):
                 # Returns a Pint Quantity objects qs (for the units) 
                 # and mw (for the molar mass).
                 u_str = dict_1["u_str"]
-                qs, mw, msg = self._unit_converter._str2pint(alias_n, u_str)
+                qs, mw_formula, msg = self._unit_converter._str2pint(alias_n, u_str)
                 self._log(msg)
                 
                 # Infer the unit alias from the short pretty
@@ -302,7 +302,7 @@ class Harmonizer(WadiBaseClass):
                     # which returns the target units as qt and the 
                     # unit conversion factor as uc. Both are Pint
                     # Quantity objects.
-                    qt, uc = self._unit_converter.get_uc(qs, target_units, mw)
+                    qt, uc = self._unit_converter.get_uc(qs, target_units, mw_formula)
 
                     if uc is not None:
                         # Only the magnitude attribute of uc is needed.
@@ -342,6 +342,9 @@ class Harmonizer(WadiBaseClass):
         if len(self._merge_columns):
             self._log("* Merging columns")
         for c_list in self._merge_columns:
+            if not set(c_list).issubset(units_header_dict):
+                self._log(f" - Merge failed for [{', '.join(c_list)}]")
+                continue
             # The target column name is the first element of the list
             target_col = c_list[0]
             # Get the units string of the target column.

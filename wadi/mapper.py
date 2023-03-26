@@ -137,7 +137,12 @@ class MapperDict(UserDict):
         return cls(rv_dict)
 
     @classmethod
-    def pubchem_cas_dict(cls, strings):
+    def pubchem_cas_dict(
+        cls,
+        strings,
+        src_lang=None,
+        max_attempts=10,
+    ):
         """
         This method creates a dictionary with CAS numbers for the
         names in 'strings' using the PubChem REST API.
@@ -146,19 +151,45 @@ class MapperDict(UserDict):
         ----------
         strings : list or list-like
             A list of the names that should be looked up.
+        src_lang : str, optional
+            String that specifies the original language of the names
+            in 'strings. Default: None.
+        max_attempts : int, optional
+            The maximum number of attempts to connect to the Google
+            Translate API. Default: 10.
 
         Returns
         ----------
         result : class instance
             An instance of the UserDict class in which the elements
             of 'strings' are the keys and the CAS numbers the values.
+            An empty dictionary is returned if translation of the
+            strings failed for some reason.
         """
-        # Note that list() is used to convert 'strings' into a list
-        # just in case a single string is passed.
-        return cls({s: query_pubchem_cas(s) for s in list(strings)})
+        # Convert 'strings' into a list just in case a single string
+        # is passed
+        strings = list(strings)
+        if src_lang is not None:
+            translated_keys = translate_strings(strings, src_lang, "EN", max_attempts)
+        else:
+            translated_keys = strings
+
+        # Start with an empty dict
+        rv_dict = {}
+        if translated_keys is not None:
+            rv_dict = {
+                s: query_pubchem_cas(s_en) for s, s_en in zip(strings, translated_keys)
+            }
+
+        return cls(rv_dict)
 
     @classmethod
-    def pubchem_cid_dict(cls, strings):
+    def pubchem_cid_dict(
+        cls,
+        strings,
+        src_lang=None,
+        max_attempts=10,
+    ):
         """
         This method creates a dictionary with CID numbers for the
         names in 'strings' using the PubChem REST API.
@@ -167,33 +198,48 @@ class MapperDict(UserDict):
         ----------
         strings : list or list-like
             A list of the names that should be looked up.
+        src_lang : str, optional
+            String that specifies the original language of the names
+            in 'strings. Default: None.
+        max_attempts : int, optional
+            The maximum number of attempts to connect to the Google
+            Translate API. Default: 10.
 
         Returns
         ----------
         result : class instance
             An instance of the UserDict class in which the elements
             of 'strings' are the keys and the CID numbers the values.
+            An empty dictionary is returned if translation of the
+            strings failed for some reason.
         """
+        # Convert 'strings' into a list just in case a single string
+        # is passed
+        strings = list(strings)
+        if src_lang is not None:
+            translated_keys = translate_strings(strings, src_lang, "EN", max_attempts)
+        else:
+            translated_keys = strings
+
         # Start with an empty dict
         rv_dict = {}
-        # Note that list() is used to convert 'strings' into a list
-        # just in case a single string is passed
-        for s in list(strings):
-            # Add each element s to the dict
-            rv_dict[s] = None
-            # Look up the PubChem synonyms
-            res = query_pubchem_synonyms(s)
-            # If a result was returned
-            if res is not None:
-                # Look up the key 'CID' in the first element
-                # of the dict that was returned. An IndeXError
-                # may occur if either of the keys '0' or 'CID'
-                # was not returned (in which case rv_dict[s]
-                # remains None).
-                try:
-                    rv_dict[s] = res[0]["CID"]
-                except IndexError:
-                    pass
+        if translated_keys is not None:
+            for s, s_en in zip(strings, translated_keys):
+                # Add each element s to the dict
+                rv_dict[s] = None
+                # Look up the PubChem synonyms
+                res = query_pubchem_synonyms(s_en)
+                # If a result was returned
+                if res is not None:
+                    # Look up the key 'CID' in the first element
+                    # of the dict that was returned. An IndeXError
+                    # may occur if either of the keys '0' or 'CID'
+                    # was not returned (in which case rv_dict[s]
+                    # remains None).
+                    try:
+                        rv_dict[s] = res[0]["CID"]
+                    except IndexError:
+                        pass
 
         return cls(rv_dict)
 
@@ -225,13 +271,9 @@ class MapperDict(UserDict):
             Translate API. Default: 10.
         """
 
-        translated_strings = translate_strings(
-            strings, src_lang, dst_lang, max_attempts
-        )
-        if translated_strings is not None:
-            rv_dict = {
-                k: v for k, v in zip(strings, translated_strings)
-            }
+        translated_keys = translate_strings(strings, src_lang, dst_lang, max_attempts)
+        if translated_keys is not None:
+            rv_dict = {k: v for k, v in zip(strings, translated_keys)}
             return cls(rv_dict)
 
     def to_file(self, file_path):
@@ -278,7 +320,7 @@ class MapperDict(UserDict):
                 k: v for k, v in zip(translated_keys, self.data.values())
             }
             self.data = translated_dict
-    
+
     def __str__(self):
         """
         This method provides the string representation of the
@@ -290,11 +332,16 @@ class MapperDict(UserDict):
             String that provides an overview of the keys and the values of
             the mapping dictionary.
         """
-        rv = f"This mapping dictionary contains the following {len(self.data)} items:\n"
+        rv = "(Please note that long mapping dictionaries may be truncated when printed to the screen.)\n"
+        rv += (
+            f"This mapping dictionary contains the following names and their aliases:\n"
+        )
         for key, value in self.data.items():
-            rv += f" - {key} --> {value}\n"        
-        
+            rv += f" - {key} --> {value}\n"
+
         return rv
+
+
 class Mapper(WadiBaseClass):
     """
     WaDI class that implements the operations to map feature names
@@ -362,15 +409,15 @@ class Mapper(WadiBaseClass):
             The dictionary that will map the names to their alias.
         match_method : str or list
             One or more names of the match method(s) to be used to find
-            feature and unit names. Valid values include 'exact', 'ascii', 
+            feature and unit names. Valid values include 'exact', 'ascii',
             'regex', 'fuzzy', 'pubchem'. Default is 'exact' for name
             mapping or 'regex' for unit mapping.
         regex_map : UnitRegexMapper
             UnitRegexMapper object to be used for mapping when match_method
             = 'regex'.
         replace_strings : dict
-            Dictionary for searching and replacing string values in in 
-            the feature names or units. The keys are the search strings 
+            Dictionary for searching and replacing string values in in
+            the feature names or units. The keys are the search strings
             and the values the replacement strings. Default:
             DEFAULT_STR2REPLACE.
         remove_strings : list
@@ -438,6 +485,7 @@ class Mapper(WadiBaseClass):
                 xl_writer = pd.ExcelWriter(
                     xl_fpath,
                     mode="a",
+                    engine="openpyxl",
                     if_sheet_exists="replace",
                 )
             else:
@@ -450,6 +498,7 @@ class Mapper(WadiBaseClass):
             # an empty file.
             xl_writer = pd.ExcelWriter(
                 xl_fpath,
+                engine="openpyxl",
                 mode="w",
             )
 
@@ -617,7 +666,7 @@ class Mapper(WadiBaseClass):
 
         # Create a DataFrame that will contain a summary of the results.
         df = pd.DataFrame({"header": columns, "name": strings})
-        
+
         # Use the StringList method replace_string to replace and remove
         # strings as specified by the user.
         strings.replace_strings(self._replace_strings)
@@ -707,6 +756,9 @@ class Mapper(WadiBaseClass):
                         f" - {name}: Searched {searched}, found {found}, alias {alias}."
                     )
 
+        idx = df["alias"].isnull()
+        df.loc[idx, "alias"] = df.loc[idx, "modified"]
+
         # Write the logged messages to the log file and the DataFrame
         # to the Excel file
         self.update_log_file()
@@ -731,3 +783,21 @@ class Mapper(WadiBaseClass):
                 rv_dict[key_0] = {"u_str": u_str}
 
         return rv_dict
+
+    def match(
+        self,
+        strings,
+    ):
+
+        alias_dict = self._execute(strings, strings)
+        df_dict = {}
+        for key, value in alias_dict.items():
+            alias = list(value.values())[0]
+            if key == alias:
+                df_dict[key] = np.nan
+            else:
+                df_dict[key] = alias
+
+        return pd.DataFrame.from_dict(
+            df_dict, orient="index", columns=["alias"]
+        ).reset_index()

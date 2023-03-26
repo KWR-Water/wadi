@@ -2,7 +2,7 @@ Example 1: Import stacked data
 ==============================
 
 This example is an extension of the 
-:doc:`minimal usage example <../getting_started/minimal_usage_example>`
+:doc:`minimal working example <../getting_started/minimal_working_example>`
 and demonstrates how to import an Excel file with stacked 
 data and perform some basic transformations. It is intended to 
 illustrate a typical WaDI workflow:
@@ -14,7 +14,7 @@ illustrate a typical WaDI workflow:
 
 .. note::
   Instructions for importing 'wide' data are provided in 
-  :doc:`this example <../user_guide/example_02>`.
+  :doc:`example 2 <../user_guide/example_02>`.
 
 Step 1: Initialize the DataObject class
 ---------------------------------------
@@ -106,9 +106,7 @@ that the imported DataFrame has nine rows of data.
     df = wdo.get_imported_dataframe()
     df.head(9)
 
-It can be seen that a comma is used as a decimal separator in the
-concentrations of the organic substances. This will be fixed in
-step four. Inspection of the parameter names shows that sulphate was wrongly
+Inspection of the parameter names shows that sulphate was wrongly
 spelled as `Sulpate` and that the name for calcium also includes
 the laboratory method (ICP-AES). Issues such as these can be remedied
 by mapping the names to new values, which will be demonstrated in the 
@@ -150,9 +148,12 @@ Both the 'exact' and 'fuzzy' mapping methods are used to match feature names
 to the keys in :code:`m_dict`. The fuzzy search algorithm finds a match if two
 terms are sufficiently close based on score between 0 and 100 percent. This
 match method will therefore result in a match for the misspelled feature name
-'Sulpate'. The 'exact' match method will find 'Chloride' and 'Calcium'. Neither 
-of these methods will find the organic substances, so their names will remain 
+'Sulpate'. The 'exact' match method will find 'Chloride' and 'Calcium'. The 
+organic substances are not in :code:`name_mapper`, so their names will remain 
 unchanged.
+
+.. note::
+  More information on creating mapping dictionaries can be found :doc:`here <../user_guide/mapping_dictionaries>`
 
 Step 4: Harmonize the data
 --------------------------
@@ -179,14 +180,18 @@ calling the :code:`get_converted_dataframe` method.
     df.head()
 
 The mapping results are summarized in the file 
-'name_mapping_results_wadi_example.xlsx'. In this file it can be
-seen that a match was found for Chloride, Sulpate and Calcium         (ICP-AES). 
-All the other features will keep their original names.
+'mapping_results_wadi_example.xlsx' in the folder named 'wadi_output'.
+In this file it can be seen that a match was found for Chloride, 
+Sulpate and Calcium         (ICP-AES).  All the other features will
+keep their original names.
 
-Note that the concentrations for the organic substances could not
-be transformed from mass units to molar units because their molar
-mass could not be determined (details are reported in the log file).
-Their concentrations were below the detection limit (values with a '<' symbol)
-and were originally reported with a comma as a decimal separator. 
-In the converted DataFrame the decimal separator is replaced with a dot.
-
+WADI uses the molmass package, which tries to calculate the molar mass 
+from chemical formulas. 
+If the molmass package is unable to determine the molar mass, WADI tries 
+to find it in the online PubChem library. In some cases unit conversion
+fails and the imported data will remain in their original units. This is 
+the case here for the electrical conductivity (as expected this cannot
+be converted to molar concentration units) and the original
+numbers are simply kept. Concentrations that were below the detection limit 
+(values with a '<' symbol) were originally reported with a comma as a decimal 
+separator. In the converted DataFrame the decimal separator is replaced with a dot.

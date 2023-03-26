@@ -9,6 +9,7 @@ The following examples demonstrate the main functionality of WaDI.
 
     example_01.rst
     example_02.rst
+    mapping_dictionaries.rst
 
 Specific usage of WaDI.
 
