@@ -1,7 +1,7 @@
 import pandas as pd
 import re
-
 from wadi.base import WadiBaseClass
+from wadi.mapper import MapperDict
 from wadi.utils import check_if_nested_list
 from wadi.unitconverter import UnitConverter
 
@@ -181,6 +181,9 @@ class Harmonizer(WadiBaseClass):
         """
         self._msg("Harmonizing", header=True)
 
+        if (self._target_units == "hgc"):
+               hgc_units_dict = MapperDict._create_hgc_units_dict()
+
         # Initialize the DataFrame to be created. Uses the target_index
         # in the InfoTable that ensures that the sampleids for
         # stacked data are uniquely defined. For wide data the
@@ -193,6 +196,7 @@ class Harmonizer(WadiBaseClass):
         # the right values to the DataFrame columns at the end.
         column_header_dict = {}
         units_header_dict = {}
+
         # Iterate over items in the InfoTable. Recall that InfoTable
         # is a nested dict and key_0 is used to indicate the level-0
         # keys and dict_1 (their corresponding values) are the
@@ -284,7 +288,7 @@ class Harmonizer(WadiBaseClass):
                 self._log(msg)
                 
                 # Infer the unit alias from the short pretty
-                # format string representation of qs.  qs may be None
+                # format string representation of qs. qs may be None
                 # if the units were not properly identified by Pint.
                 if (qs is not None):
                     alias_u = f"{qs.units:~P}"
@@ -293,7 +297,9 @@ class Harmonizer(WadiBaseClass):
                     # The user may wish to override the general
                     # target units, in which case the desired
                     # units were passed in the dict override_units.
-                    if key_0 in self._override_units:
+                    if (self._target_units == "hgc"):
+                        target_units = hgc_units_dict.get(alias_n)
+                    elif key_0 in self._override_units:
                         target_units = self._override_units[key_0]
                     else:
                         target_units = self._target_units

@@ -49,6 +49,7 @@ class FileReader(WadiBaseClass):
         format="stacked",  # str, immutable
         c_dict=None,
         mask=None,
+        lod_column=None,
         pd_reader="read_excel",  # str, immutable
         **kwargs,
     ):
@@ -70,9 +71,18 @@ class FileReader(WadiBaseClass):
             column names in the file to the compulsory column names defined
             in REQUIRED_COLUMNS_S. Default: DEFAULT_C_DICT
         mask : str, optional
-            Name of the column that contains True/False labels, sometimes
-            used to indicate if a reported value is below or above the
-            detection limit. Only used when the format is 'stacked'.
+            Name of the column that contains True/False labels. These sometimes
+            occur in stacked data files to indicate if a reported value is 
+            below or above the detection limit. If a valid column name is 
+            specified, the values marked with `False` are filtered out from 
+            the converted DataFrame. Only used when the format is 'stacked'.
+            Default: None
+        lod_column : str, optional
+            Name of the column that contains information about whether the 
+            reported measurement value is below or above the limit of 
+            detection (LOD). If a valid column name is specified, the
+            symbol is prefixed to the measurement value.
+            Only used when the format is 'stacked'. Default: None
         pd_reader : str, optional
             Name of the Pandas function to read the file. Must be a valid
             function name. While all functions implemented in Pandas could
@@ -100,6 +110,7 @@ class FileReader(WadiBaseClass):
         self._c_dict = c_dict or DEFAULT_C_DICT
 
         self._mask = mask
+        self._lod_column = lod_column
 
         self._kwargs = copy.deepcopy(vars()["kwargs"])  # deepcopy just to be sure
 
@@ -145,11 +156,14 @@ class FileReader(WadiBaseClass):
         # DataFrame.
         df, units, datatypes = self._read_file(self._file_path, self._pd_reader, blocks)
 
-        # Use the values in the column with name 'mask' to
-        # hide the values below the detection limit from view.
-        # Still to implement: Convert them to a lower than format.
-        if self._mask is not None:
-            df = df.loc[df[self._mask]]
+        if self._format == "stacked":
+            # Use the values in the column with name 'mask' to
+            # hide the values labelled as False from view.
+            if self._mask is not None:
+                df = df.loc[df[self._mask]]
+
+            if self._lod_column is not None:
+                df[self._c_dict["Values"]] = df[self._lod_column] + df[self._c_dict["Values"]].astype(str)
 
         # Create the InfoTable dictionary that stores views to the
         # imported data as well as additional information (units,
