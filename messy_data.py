@@ -1,6 +1,7 @@
 import os
+from pathlib import Path
 
-os.chdir("D:\\Users\\postvi\\Documents\\github\\wadi")
+os.chdir(Path(__file__).parent)
 
 import wadi as wd
 

@@ -1,0 +1,7 @@
+# requirements in case you want to change the documentation or code and run tests
+-r requirements.txt
+numpydoc
+sphinx_rtd_theme
+pytest
+jupyter-sphinx
+matplotlib
