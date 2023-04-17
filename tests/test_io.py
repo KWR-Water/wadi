@@ -1,14 +1,13 @@
-import sys
-sys.path.append('..')
-
-import pytest
+from hgc import constants
 
 import wadi as wd
 
-def test_check_format_valid_strings():
-    wi = wd.Importer()
-    assert wi._check_format('s') == 'stacked'
-    assert wi._check_format('w') == 'wide'
-    assert wi._check_format('g') == 'gef'
+def test_correct_units():
+    """ Test whether the to-hgc method is using the correct units and names
+    of quantitties """
+    raise NotImplementedError()
+    assert constants == wd.used_hgc_units()
 
-    
+
+
+
