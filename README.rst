@@ -7,6 +7,8 @@ wadi
                     :target: https://github.com/KWR-Water/wadi/actions
 .. image:: https://img.shields.io/codecov/c/gh/KWR-Water/wadi
                     :target: https://codecov.io/gh/KWR-Water/wadi
+.. image:: https://github.com/KWR-Water/wadi/actions/workflows/coverage.yml/badge.svg
+                    :target: https://github.com/KWR-Water/wadi/actions
 
 Wadi is a very generic importer for (almost) all (excel) formats in which water quality data of the (Dutch) water
 laboratory is shared
