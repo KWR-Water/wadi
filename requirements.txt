@@ -2,8 +2,8 @@ fuzzywuzzy
 googletrans==3.1.0a0
 levenshtein>=0.20.9
 molmass
-pandas>=1,<2
-pint>0.20
+pandas>=1,<=2
+pint>=0.20
 python-dateutil
 python-Levenshtein>=0.20.9
 openpyxl==3.1.2
