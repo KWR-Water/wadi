@@ -13,7 +13,10 @@ in the :doc:`user guide section <../user_guide/index>`.
     # Import the library
     import wadi as wd
     from pathlib import Path
+    import os
+    os.chdir('..')
     Path.cwd()
+
 
 .. ipython:: python
     :okexcept:
