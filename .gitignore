@@ -130,13 +130,27 @@ dmypy.json
 
 # Example files for testing
 examples/KIWK KOW Grubbenvorst  WP PP ruw rein 20210608.xlsx
+test*.py
 
 # files that are created on the fly
 # docs/source/_build
 *.log
 *.json
-test*.py
 .google-cookie
 .pylint.d
 *.zip
 .vscode
+
+# Others
+docs/wadi_putput
+create_default_feature_map_from_pickle.py
+feature_map.pkl
+.pytest_cache/
+.vscode/
+
+# Others
+docs/wadi_putput
+create_default_feature_map_from_pickle.py
+feature_map.pkl
+.pytest_cache/
+.vscode/

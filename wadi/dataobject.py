@@ -139,18 +139,46 @@ class DataObject(WadiBaseClass):
         # Harmonize
         self._converted_df = self.harmonizer._execute(self._infotable)
 
-    def get_converted_dataframe(self):
+    def get_converted_dataframe(self,
+            include_units=True,
+            force_conversion=False,
+        ):
         """
-        This method returns the converted DataFrame.
+        This method converts the input data based on the specified
+        name and unit maps and harmonizer, and returns the result
+        as a DataFrame.
+
+        Parameters
+        ----------
+        include_units : bool, optional
+            When True the DataFrame's columns will be a MultiIndex
+            that contains both the feature aliases and their units.
+            When set to False a DataFrame is returned of which the 
+            columns simply correspond to the feature aliases and 
+            the units are discarded. The latter option is useful when
+            the DataFrame is intended for further processing in HGC.
+            Default: True.
+        force_conversion: bool, optional
+            When True, the function will always map and harmonize
+            the data before it returns the DataFrame. When False,
+            the results from any previously executed data mapping
+            and harmonizing are returned, when present. Default:
+            False. 
 
         Returns
         ----------
         result : DataFrame
             The converted DataFrame.
         """
-        self._execute()
-        return self._converted_df
+        if (self._converted_df is None) or (force_conversion == True):
+            self._execute()
 
+        if include_units == True:
+            return self._converted_df
+        else:
+            level0_cols = self._converted_df.columns.get_level_values(0)
+            return self._converted_df.set_axis(level0_cols, axis='columns')
+    
     def get_imported_dataframe(self):
         """
         This method returns the imported DataFrame (that is, the data 
@@ -167,13 +195,13 @@ class DataObject(WadiBaseClass):
 
     def get_imported_names(self):
         """
-        This method returns the imported DataFrame (that is, the data 
-        'as read').
+        This method returns the names of the features
+        in the imported DataFrame.
 
         Returns
         ----------
-        result : DataFrame
-            The imported DataFrame.
+        result : list
+            A list with feature names in the imported DataFrame.
         """
         if self._infotable is None:
             self._execute(import_only=True)

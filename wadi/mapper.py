@@ -30,6 +30,8 @@ DEFAULT_STR2REPLACE = {
     "μ": "u",
     "µ": "u",
     "%": "percentage",
+    "°C": "degC",
+    "°F": "degF",
 }
 DEFAULT_FILTERSTR = [
     "gefiltreerd",
@@ -136,6 +138,28 @@ class MapperDict(UserDict):
         rv_dict = {k: str(v[0]) for k, v in rv_dict.items()}
         return cls(rv_dict)
 
+    @classmethod
+    def _create_hgc_units_dict(cls):
+        """
+        This method initializes the class by reading the csv
+        files in the folder hgc_constants, which contain
+        the feature names and their target units.
+
+        Returns
+        ----------
+        result : class instance
+            An instance of the UserDict class containing the
+            imported data.
+        """
+
+        rv_dict = {}
+        filepath = Path(Path(__file__).parents[1], "hgc_constants")
+        for fname in ["atoms.csv", "ions.csv", "other_than_concentrations.csv"]:
+            df = pd.read_csv(Path(filepath, fname), comment='#')
+            rv_dict = {**rv_dict, **df.set_index("feature")["unit"].to_dict()}
+
+        return cls(rv_dict)
+    
     @classmethod
     def pubchem_cas_dict(
         cls,
@@ -332,12 +356,17 @@ class MapperDict(UserDict):
             String that provides an overview of the keys and the values of
             the mapping dictionary.
         """
-        rv = "(Please note that long mapping dictionaries may be truncated when printed to the screen.)\n"
+        max_lines = 10
+        rv = f"This dictionary contains {len(self.data)} elements.\n"
+        if len(self.data) > max_lines:
+            rv += f"Only the first {max_lines} elements are shown.\n"
         rv += (
             f"This mapping dictionary contains the following names and their aliases:\n"
         )
-        for key, value in self.data.items():
+        for i, (key, value) in enumerate(self.data.items()):
             rv += f" - {key} --> {value}\n"
+            if i > max_lines:
+                break
 
         return rv
 
