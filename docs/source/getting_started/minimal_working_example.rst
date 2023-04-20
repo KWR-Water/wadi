@@ -1,7 +1,7 @@
 Minimal working example
 =======================
 
-This example demonstrates how to import an Excel file with stacked 
+This example demonstrates how to import an Excel file with stacked
 data. It does nothing other than to convert the data from 'stacked'
 to 'wide' format. A more elaborate version of this example is given
 in the :doc:`user guide section <../user_guide/index>`.
@@ -12,6 +12,12 @@ in the :doc:`user guide section <../user_guide/index>`.
 
     # Import the library
     import wadi as wd
+    from pathlib import Path
+    Path.cwd()
+
+.. ipython:: python
+    :okexcept:
+    :okwarning:
 
     # Create an instance of a WaDI DataObject, specify the log file name
     wdo = wd.DataObject(log_fname='minimal_usage.log', silent=True)
