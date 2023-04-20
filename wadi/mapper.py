@@ -583,7 +583,6 @@ class Mapper(WadiBaseClass):
         """
         regex_match = re.compile(self._regex_map.RE)
         matches = [regex_match.match(s) for s in strings]
-        print(matches)
         return [
             [self._regex_map.str(m.groupdict()), None] if m else [None, None]
             for m in matches

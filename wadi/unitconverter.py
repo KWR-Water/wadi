@@ -230,7 +230,7 @@ class UnitConverter:
             # are molar units, which can be identified using the Pint
             # Quantity's object dimensionality property. If this is the case
             # a key called '[substance]' will be present.
-            if '[substance]' in qt.dimensionality.keys():
+            if ('[substance]' in qt.dimensionality.keys()) and (mw_formula is not None):
                 mw = self._get_mw(mw_formula)
                 if mw is None:
                     mw = get_pubchem_molecular_weight(mw_formula)
