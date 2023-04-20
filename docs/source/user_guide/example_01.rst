@@ -133,6 +133,7 @@ of the :code:`name_map` method. The keys of :code:`m_dict` are the feature
 names to be matched, which will be replaced by the corresponding values.
 
 .. ipython:: python
+    :okexcept:
 
     name_mapper = {'Chloride': 'Cl',
         'Calcium': 'Ca',
@@ -166,6 +167,7 @@ concentrations to mmol/l by setting  :code:`convert_units` to True
 (the default is False).
 
 .. ipython:: python
+    :okexcept:
 
     df = wdo.harmonizer(convert_units=True,
         target_units='mmol/l',

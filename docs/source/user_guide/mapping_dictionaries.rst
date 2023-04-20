@@ -53,6 +53,7 @@ file `mapping_example.xlsx`. The following code instructs WaDI what columns
 to look for in the spreadsheet file in order to be able to import the data.
 
 .. ipython:: python
+    :okexcept:
 
     # Create an instance of a WaDI DataObject, specify the log file name
     wdo = wd.DataObject(log_fname='mapping_example.log', silent=True)
@@ -118,6 +119,7 @@ The user should therefore proceed with extreme caution when using this
 functionality!
 
 .. ipython:: python
+    :okexcept:
 
     names_dict = wd.mapper.MapperDict.pubchem_cid_dict(names, src_lang="NL")
 
@@ -138,6 +140,7 @@ CIDs, the function  :code:`pubchem_cas_dict` can be invoked to look up
 CAS numbers in PubChem.
 
 .. ipython:: python
+    :okexcept:
 
     names_dict = wd.mapper.MapperDict.pubchem_cas_dict(names, src_lang="NL")
 
@@ -163,6 +166,7 @@ language into another. The function to create this dictionary is
 :code:`translation_dict` and is demonstrated in the following code snippet
 
 .. ipython:: python
+    :okexcept:
 
     names_dict = wd.mapper.MapperDict.translation_dict(names,
         src_lang="NL",

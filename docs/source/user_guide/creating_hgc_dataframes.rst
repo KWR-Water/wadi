@@ -17,6 +17,7 @@ printed to the screen because the :code:`silent` keyword argument is set
 to :code:`True`.
 
 .. ipython:: python
+    :okexcept:
 
     import wadi as wd
 
@@ -34,6 +35,7 @@ and the feature data in columns F through N. A separate dictionary needs to
 be created for both.
 
 .. ipython:: python
+    :okexcept:
 
     df0_kwargs = {
         "skiprows": [1],
@@ -60,6 +62,7 @@ and the result of the import operation can be visualized by printing the
 contents of the imported DataFrame
 
 .. ipython:: python
+    :okexcept:
 
     wdo.file_reader(
         file_path="hgc_example.xlsx",
@@ -100,6 +103,7 @@ HGC, which are different for different species (for example, mg/l for
 chloride, but ug/l for bromide).
 
 .. ipython:: python
+    :okexcept:
 
     df = wdo.harmonizer(
         convert_units=True,
@@ -109,6 +113,7 @@ chloride, but ug/l for bromide).
 The data can now be converted and displayed on the screen.
 
 .. ipython:: python
+    :okexcept:
 
     df = wdo.get_converted_dataframe()
 
@@ -125,6 +130,7 @@ by setting the :code:`include_units` argument of the
 :code:`get_converted_dataframe` function to :code:`False`.
 
 .. ipython:: python
+    :okexcept:
 
     df_hgc = wdo.get_converted_dataframe(include_units=False)
 

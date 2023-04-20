@@ -19,6 +19,7 @@ Nothing special needs to be done in this step, except to provide the
 log file name.
 
 .. ipython:: python
+    :okexcept:
 
     import wadi as wd
 
@@ -57,6 +58,7 @@ As with :code:`skiprows`, the number has to be looked up by the user by
 inspecting the contents of the spreadsheet file.
 
 .. ipython:: python
+    :okexcept:
 
     rows2skip0 = list(range(8)) + [21, 22] + list(range(24, 34))
     df0_kwargs = {
@@ -88,6 +90,7 @@ concentrations are organized in columns, so the :code:`format` argument
 should become 'wide'.
 
 .. ipython:: python
+    :okexcept:
 
     wdo.file_reader(
         file_path='messy_data.xlsx',
@@ -125,6 +128,7 @@ to 'Nitrate', which will automatically fix the translation mistake for
 this feature.
 
 .. ipython:: python
+    :okexcept:
 
     feature_dict = wd.MapperDict({
             'Phosphate': 'PO4',
@@ -156,6 +160,7 @@ unit mapping to be successful. These are passed as a dictionary with the
 keyword arguments :code:`replace_strings`.
 
 .. ipython:: python
+    :okexcept:
 
     wdo.unit_map(
         match_method=['regex'],
