@@ -258,7 +258,7 @@ class Harmonizer(WadiBaseClass):
             # Rows with NaNs can be dropped for faster processing,
             # since all Series share a common index, they are easily
             # pieced together at the end into a new DataFrame.
-            values = pd.to_numeric(values.dropna(), errors="ignore")
+            values = values.dropna()
 
             # The column name in the new DataFrame will be the item's
             # alias...
@@ -331,6 +331,7 @@ class Harmonizer(WadiBaseClass):
                         )
 
                 # Convert the measurement values using _convert_values.
+                values = pd.to_numeric(values, errors="ignore")
                 values = values.apply(self._convert_values, conversion_factor=uc_factor)
 
             # Add the values Series as a column to the new DataFrame.

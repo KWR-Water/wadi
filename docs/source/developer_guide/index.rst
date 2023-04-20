@@ -4,9 +4,9 @@ Developer guide
 
 The following abbreviations are used throughtout the code for variable names:
 
-* c_ as a prefix for column
-* m_ as a prefix for map 
-* rv for return value (or rv_ when used as a prefix)
+* c\_ as a prefix for column
+* m\_ as a prefix for map 
+* rv for return value (or rv\_ when used as a prefix)
 
 
 The InfoTable is a nested dictionary. The level-0 keys are indicated

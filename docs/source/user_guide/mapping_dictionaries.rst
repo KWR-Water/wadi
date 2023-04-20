@@ -109,7 +109,7 @@ the English feature name. However, translations may be unreliable and may
 not yield the desired result. In this example, the feature name `koper` is
 Dutch for the element `copper` but Google Translate finds the English word 
 `buyer`, which is another, equally valid, meaning of the Dutch word `koper` (
-see :doc:`Creating a translation dictionary <Creating a translation dictionary>`).
+see :ref:`Creating a translation dictionary<translation-dict>`).
 The user should therefore proceed with extreme caution when using this
 functionality!
 
@@ -146,6 +146,8 @@ CAS numbers in PubChem.
 The column names are now the CAS numbers that could be retrieved. When
 no CAS number could be determined (such as for `koper`), the original 
 feature name is retained as the column heading.
+
+.. _translation-dict:
 
 Creating a translation dictionary
 ---------------------------------

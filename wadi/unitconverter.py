@@ -1,7 +1,7 @@
 import molmass as mm
 from molmass.molmass import FormulaError
 from pint import UnitRegistry
-from pint.errors import DimensionalityError, UndefinedUnitError
+from pint.errors import DimensionalityError, UndefinedUnitError, OffsetUnitCalculusError
 
 from wadi.api_utils import get_pubchem_molecular_weight
 
@@ -223,10 +223,17 @@ class UnitConverter:
         try:
             # Convert the target_units string to a Pint Quantity object
             qt = self._ureg(target_units)
+
             # Determine the molecular mass in g/mol.
-            mw = self._get_mw(mw_formula)
-            if mw is None:
-                mw = get_pubchem_molecular_weight(mw_formula)
+            mw = None
+            # Only try to determine the molecular mass if the target units
+            # are molar units, which can be identified using the Pint
+            # Quantity's object dimensionality property. If this is the case
+            # a key called '[substance]' will be present.
+            if '[substance]' in qt.dimensionality.keys():
+                mw = self._get_mw(mw_formula)
+                if mw is None:
+                    mw = get_pubchem_molecular_weight(mw_formula)
 
             # Use the source units 'to' method to determine the unit
             # conversion factor.
@@ -237,7 +244,7 @@ class UnitConverter:
 
             # Divide uc by qs to get the right dimensions
             uc /= qs
-        except (AttributeError, DimensionalityError) as e:
+        except (AttributeError, DimensionalityError, OffsetUnitCalculusError) as e:
             qt = None
             uc = None
 
@@ -308,5 +315,5 @@ class UnitConverter:
         except (AttributeError, TypeError, UndefinedUnitError, ValueError):
             # When an error occurs, write a message to the log file and
             # return empty return values.
-            msg = f" - Failed to parse unit '{u_str}' with pint for {name}"
+            msg = f" - Failed to parse unit '{u_str}' with Pint for {name}"
             return None, None, msg
