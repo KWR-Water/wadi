@@ -14,8 +14,9 @@ in the :doc:`user guide section <../user_guide/index>`.
     import wadi as wd
     from pathlib import Path
     import os
-    os.chdir('..')
-    Path.cwd()
+    print(Path.cwd())
+    os.chdir(Path().resolve())
+    print(Path.cwd())
 
 
 .. ipython:: python
