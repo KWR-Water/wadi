@@ -17,6 +17,8 @@ in the :doc:`user guide section <../user_guide/index>`.
     print(Path.cwd())
     os.chdir(Path().resolve())
     print(Path.cwd())
+    import glob
+    glob.glob('**/*.xlsx', recursive=True)
 
 
 .. ipython:: python
