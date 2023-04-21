@@ -28,7 +28,6 @@ that have multiple names. Creating the default dictionary is done with the
 following command:
 
 .. ipython:: python
-    :okexcept:
 
     import wadi as wd
 
@@ -41,7 +40,6 @@ and they will be converted to a PubChem CID. Information about the dictionary
 contents can be obtained by printing it to the screen
 
 .. ipython:: python
-    :okexcept:
 
     print(names_dict)
 
@@ -56,7 +54,6 @@ documentation, find the directory with the data files with `get_data_dir`
 
 
 .. ipython:: python
-    :okexcept:
 
     from wadi.documentation_helpers import get_data_dir
     DATA_DIRECTORY = get_data_dir()
@@ -79,7 +76,6 @@ Let's print the names of the imported features and create a for loop to
 see what aliases will be used if a name appears in the dictionary.
 
 .. ipython:: python
-    :okexcept:
 
     names = wdo.get_imported_dataframe()["parameter"]
     print(names)
@@ -93,7 +89,6 @@ the returned DataFrame, the result of the mapping operation can be
 inspected
 
 .. ipython:: python
-    :okexcept:
 
     wdo.name_map(m_dict=names_dict)
     df = wdo.get_converted_dataframe()
@@ -125,7 +120,6 @@ The user should therefore proceed with extreme caution when using this
 functionality!
 
 .. ipython:: python
-    :okexcept:
 
     names_dict = wd.mapper.MapperDict.pubchem_cid_dict(names, src_lang="NL")
 
@@ -146,7 +140,6 @@ CIDs, the function  :code:`pubchem_cas_dict` can be invoked to look up
 CAS numbers in PubChem.
 
 .. ipython:: python
-    :okexcept:
 
     names_dict = wd.mapper.MapperDict.pubchem_cas_dict(names, src_lang="NL")
 
@@ -172,7 +165,6 @@ language into another. The function to create this dictionary is
 :code:`translation_dict` and is demonstrated in the following code snippet
 
 .. ipython:: python
-    :okexcept:
 
     names_dict = wd.mapper.MapperDict.translation_dict(names,
         src_lang="NL",

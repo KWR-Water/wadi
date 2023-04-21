@@ -23,8 +23,6 @@ The very first thing to do is to import the WaDI library.
 In the code example below it is renamed to wd.
 
 .. ipython:: python
-    :okexcept:
-    :okwarning:
 
     import wadi as wd
 
@@ -35,8 +33,6 @@ make it possible to change the name and the output directory of the
 log file that WaDI creates.
 
 .. ipython:: python
-    :okexcept:
-    :okwarning:
 
     wdo = wd.DataObject(log_fname='WaDI_example.log', silent=True)
 
@@ -59,8 +55,6 @@ documentation, find the directory with the data files with `get_data_dir`
 
 
 .. ipython:: python
-    :okexcept:
-    :okwarning:
 
     from wadi.documentation_helpers import get_data_dir
     DATA_DIRECTORY = get_data_dir()
@@ -105,8 +99,6 @@ The contents of the imported DataFrame can be displayed by calling the
 that the imported DataFrame has nine rows of data.
 
 .. ipython:: python
-    :okexcept:
-    :okwarning:
 
     df = wdo.get_imported_dataframe()
     df.head(9)
@@ -138,7 +130,6 @@ of the :code:`name_map` method. The keys of :code:`m_dict` are the feature
 names to be matched, which will be replaced by the corresponding values.
 
 .. ipython:: python
-    :okexcept:
 
     name_mapper = {'Chloride': 'Cl',
         'Calcium': 'Ca',
@@ -172,7 +163,6 @@ concentrations to mmol/l by setting  :code:`convert_units` to True
 (the default is False).
 
 .. ipython:: python
-    :okexcept:
 
     df = wdo.harmonizer(convert_units=True,
         target_units='mmol/l',
@@ -182,7 +172,6 @@ Finally the result of the operations defined above can be obtained by
 calling the :code:`get_converted_dataframe` method.
 
 .. ipython:: python
-    :okexcept:
 
     df = wdo.get_converted_dataframe()
     df.head()

@@ -19,7 +19,6 @@ Nothing special needs to be done in this step, except to provide the
 log file name.
 
 .. ipython:: python
-    :okexcept:
 
     import wadi as wd
 
@@ -58,7 +57,6 @@ As with :code:`skiprows`, the number has to be looked up by the user by
 inspecting the contents of the spreadsheet file.
 
 .. ipython:: python
-    :okexcept:
 
     rows2skip0 = list(range(8)) + [21, 22] + list(range(24, 34))
     df0_kwargs = {
@@ -91,7 +89,6 @@ should become 'wide'. For the purpose of the demonstration in this
 documentation, find the directory with the data files with `get_data_dir`
 
 .. ipython:: python
-    :okexcept:
 
     from wadi.documentation_helpers import get_data_dir
     DATA_DIRECTORY = get_data_dir()
@@ -108,7 +105,6 @@ automatically numbered the second column of duplicate columns by
 appending '.1'.
 
 .. ipython:: python
-    :okexcept:
 
     df = wdo.get_imported_dataframe()
     df.head()
@@ -132,7 +128,6 @@ to 'Nitrate', which will automatically fix the translation mistake for
 this feature.
 
 .. ipython:: python
-    :okexcept:
 
     feature_dict = wd.MapperDict({
             'Phosphate': 'PO4',
@@ -164,7 +159,6 @@ unit mapping to be successful. These are passed as a dictionary with the
 keyword arguments :code:`replace_strings`.
 
 .. ipython:: python
-    :okexcept:
 
     wdo.unit_map(
         match_method=['regex'],
@@ -207,7 +201,6 @@ be used to convert only the arsenic concentrations to μmol/l.
     behavior occurred.
 
 .. ipython:: python
-    :okexcept:
 
     drop_cols = [
         "SampleID",
@@ -244,8 +237,6 @@ be used to convert only the arsenic concentrations to μmol/l.
 .. that the values were converted correctly the column name can be specified
 
 .. .. ipython:: python
-..     :okexcept:
-..     :okwarning:
 
 ..     df['As'].head()
 
@@ -253,6 +244,5 @@ Finally, the resulting DataFrame can be saved to an Excel file using the
 :code:`to_excel` function.
 
 .. ipython:: python
-    :okexcept:
 
     df.to_excel('tidied_data.xlsx')

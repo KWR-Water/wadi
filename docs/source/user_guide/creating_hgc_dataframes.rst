@@ -17,7 +17,6 @@ printed to the screen because the :code:`silent` keyword argument is set
 to :code:`True`.
 
 .. ipython:: python
-    :okexcept:
 
     import wadi as wd
 
@@ -35,7 +34,6 @@ and the feature data in columns F through N. A separate dictionary needs to
 be created for both.
 
 .. ipython:: python
-    :okexcept:
 
     df0_kwargs = {
         "skiprows": [1],
@@ -65,13 +63,11 @@ For the purpose of the demonstration in this documentation, find the folder
 with the data files
 
 .. ipython:: python
-    :okexcept:
 
     from wadi.documentation_helpers import get_data_dir
     DATA_DIRECTORY = get_data_dir()
 
 .. ipython:: python
-    :okexcept:
 
     wdo.file_reader(
         file_path=DATA_DIRECTORY / "hgc_example.xlsx",
@@ -94,7 +90,6 @@ selected match methods are 'exact' and 'fuzzy', with the latter being
 included because it is case insensitive.
 
 .. ipython:: python
-    :okexcept:
 
     names_dict = wd.mapper.MapperDict.default_dict('SIKB', 'HGC')
 
@@ -112,7 +107,6 @@ HGC, which are different for different species (for example, mg/l for
 chloride, but ug/l for bromide).
 
 .. ipython:: python
-    :okexcept:
 
     df = wdo.harmonizer(
         convert_units=True,
@@ -122,7 +116,6 @@ chloride, but ug/l for bromide).
 The data can now be converted and displayed on the screen.
 
 .. ipython:: python
-    :okexcept:
 
     df = wdo.get_converted_dataframe()
 
@@ -139,7 +132,6 @@ by setting the :code:`include_units` argument of the
 :code:`get_converted_dataframe` function to :code:`False`.
 
 .. ipython:: python
-    :okexcept:
 
     df_hgc = wdo.get_converted_dataframe(include_units=False)
 

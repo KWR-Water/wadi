@@ -7,8 +7,6 @@ to 'wide' format. A more elaborate version of this example is given
 in the :doc:`user guide section <../user_guide/index>`.
 
 .. ipython:: python
-    :okexcept:
-    :okwarning:
 
     # Import the library
     import wadi as wd
@@ -16,16 +14,12 @@ in the :doc:`user guide section <../user_guide/index>`.
 Get the folder containing the data that is used within this documentation.
 
 .. ipython:: python
-    :okexcept:
-    :okwarning:
 
     from wadi.documentation_helpers import get_data_dir
     DATA_DIRECTORY = get_data_dir()
 
 
 .. ipython:: python
-    :okexcept:
-    :okwarning:
 
     # Create an instance of a WaDI DataObject, specify the log file name
     wdo = wd.DataObject(log_fname='minimal_usage.log', silent=True)
