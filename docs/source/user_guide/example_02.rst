@@ -105,6 +105,10 @@ automatically numbered the second column of duplicate columns by
 appending '.1'.
 
 .. ipython:: python
+    :okexcept:
+
+    import sys
+    sys.version
 
     df = wdo.get_imported_dataframe()
     df.head()
@@ -201,6 +205,7 @@ be used to convert only the arsenic concentrations to μmol/l.
     behavior occurred.
 
 .. ipython:: python
+    :okexcept:
 
     drop_cols = [
         "SampleID",
@@ -244,5 +249,6 @@ Finally, the resulting DataFrame can be saved to an Excel file using the
 :code:`to_excel` function.
 
 .. ipython:: python
+    :okexcept:
 
     df.to_excel('tidied_data.xlsx')
