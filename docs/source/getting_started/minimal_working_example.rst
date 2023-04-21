@@ -15,7 +15,7 @@ in the :doc:`user guide section <../user_guide/index>`.
     from pathlib import Path
     import os
     print(Path.cwd())
-    os.chdir(Path().resolve())
+    os.chdir(Path().resolve().parent)
     print(Path.cwd())
     import glob
     glob.glob('**/*.xlsx', recursive=True)
