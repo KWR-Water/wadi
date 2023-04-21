@@ -54,13 +54,18 @@ Step 2: Read the data
 
 Once the DataObject class has been initialized, its :code:`file_reader`
 method must be called to specify the name and the structure of the file
-that is to be imported.
+that is to be imported. For the purpose of the demonstration in this
+documentation, find the directory with the data files with `get_data_dir`
+
 
 .. ipython:: python
     :okexcept:
     :okwarning:
 
-    wdo.file_reader('stacked_data.xlsx',
+    from wadi.documentation_helpers import get_data_dir
+    DATA_DIRECTORY = get_data_dir()
+
+    wdo.file_reader(DATA_DIRECTORY / 'stacked_data.xlsx',
         format='stacked',
         c_dict={'SampleId': 'Sample number',
                 'Features': 'Parameter description',

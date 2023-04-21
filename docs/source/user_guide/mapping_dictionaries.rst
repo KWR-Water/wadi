@@ -51,16 +51,22 @@ the same CID (10107).
 The use of the mapping dictionaries will be demonstrated using the spreadsheet
 file `mapping_example.xlsx`. The following code instructs WaDI what columns
 to look for in the spreadsheet file in order to be able to import the data.
+For the purpose of the demonstration in this
+documentation, find the directory with the data files with `get_data_dir`
+
 
 .. ipython:: python
     :okexcept:
+
+    from wadi.documentation_helpers import get_data_dir
+    DATA_DIRECTORY = get_data_dir()
 
     # Create an instance of a WaDI DataObject, specify the log file name
     wdo = wd.DataObject(log_fname='mapping_example.log', silent=True)
 
     # Import the data. The 'c_dict' dictionary specifies the column names
     # for the sample identifiers,  feature names, concentrations and units.
-    wdo.file_reader('mapping_example.xlsx',
+    wdo.file_reader(DATA_DIRECTORY / 'mapping_example.xlsx',
         format='stacked',
         c_dict={'SampleId': 'sample_code',
                 'Features': 'parameter',

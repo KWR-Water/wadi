@@ -87,13 +87,17 @@ Now that the arguments for the three data blocks have been defined,
 they can be passed on to the :code:`file_reader` method.
 Additionally, the file name and the data format is passed. In this case, the
 concentrations are organized in columns, so the :code:`format` argument
-should become 'wide'.
+should become 'wide'. For the purpose of the demonstration in this
+documentation, find the directory with the data files with `get_data_dir`
 
 .. ipython:: python
     :okexcept:
 
+    from wadi.documentation_helpers import get_data_dir
+    DATA_DIRECTORY = get_data_dir()
+
     wdo.file_reader(
-        file_path='messy_data.xlsx',
+        file_path=DATA_DIRECTORY / 'messy_data.xlsx',
         format='wide',
         blocks=[df0_kwargs, df1_kwargs, df2_kwargs],
     )

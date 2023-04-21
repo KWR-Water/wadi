@@ -32,7 +32,7 @@ Get the folder containing the data that is used within this documentation.
 
     # Import the data. The 'c_dict' dictionary specifies the column names
     # for the sample identifiers,  feature names, concentrations and units.
-    wdo.file_reader('stacked_data.xlsx',
+    wdo.file_reader(DATA_DIRECTORY / 'stacked_data.xlsx',
         format='stacked',
         c_dict={'SampleId': 'Sample number',
                 'Features': 'Parameter description',

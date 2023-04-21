@@ -61,11 +61,20 @@ With these dictionaries defined, the :code:`file_reader` can be initialized
 and the result of the import operation can be visualized by printing the
 contents of the imported DataFrame
 
+For the purpose of the demonstration in this documentation, find the folder
+with the data files
+
+.. ipython:: python
+    :okexcept:
+
+    from wadi.documentation_helpers import get_data_dir
+    DATA_DIRECTORY = get_data_dir()
+
 .. ipython:: python
     :okexcept:
 
     wdo.file_reader(
-        file_path="hgc_example.xlsx",
+        file_path=DATA_DIRECTORY / "hgc_example.xlsx",
         format="wide",
         blocks=[df0_kwargs, df1_kwargs],
     )
