@@ -19,7 +19,7 @@ illustrate a typical WaDI workflow:
 Step 1: Initialize the DataObject class
 ---------------------------------------
 
-The very first thing to do is to import the wadi library.
+The very first thing to do is to import the WaDI library.
 In the code example below it is renamed to wd.
 
 .. ipython:: python
@@ -32,13 +32,13 @@ The DataObject class is now available as :code:`wd.DataObject`. This
 class must always be initialized. It can be called without arguments,
 but the optional arguments :code:`log_fname` and :code:`output_dir`
 make it possible to change the name and the output directory of the
-log file that WADI creates.
+log file that WaDI creates.
 
 .. ipython:: python
     :okexcept:
     :okwarning:
 
-    wdo = wd.DataObject(log_fname='wadi_example.log', silent=True)
+    wdo = wd.DataObject(log_fname='WaDI_example.log', silent=True)
 
 The DataObject class instance is stored as :code:`wdo`, which will be used
 in the next step to read the data from the spreadsheet file.
@@ -84,7 +84,7 @@ be present in the spreadsheet file
 
 Inspection of the spreadsheet file 'stacked_data.xlsx' shows that
 these columns are called 'Sample number', 'Parameter description',
-'Unit description' and 'Reported value'. Therefore, for wadi to be
+'Unit description' and 'Reported value'. Therefore, for WaDI to be
 able to find the compulsory columns, their names must be mapped to
 the column names listed above. This is why the :code:`c_dict`
 argument (the `c` is shorthand for column) is used: It takes a
@@ -188,14 +188,14 @@ calling the :code:`get_converted_dataframe` method.
     df.head()
 
 The mapping results are summarized in the file
-'mapping_results_wadi_example.xlsx' in the folder named 'wadi_output'.
+'mapping_results_WaDI_example.xlsx' in the folder named 'WaDI_output'.
 In this file it can be seen that a match was found for Chloride,
 Sulpate and Calcium         (ICP-AES).  All the other features will
 keep their original names.
 
-WADI uses the molmass package, which tries to calculate the molar mass
+WaDI uses the molmass package, which tries to calculate the molar mass
 from chemical formulas.
-If the molmass package is unable to determine the molar mass, WADI tries
+If the molmass package is unable to determine the molar mass, WaDI tries
 to find it in the online PubChem library. In some cases unit conversion
 fails and the imported data will remain in their original units. This is
 the case here for the electrical conductivity (as expected this cannot

@@ -1,5 +1,5 @@
 
-wadi
+WaDI
 ====
 .. image:: https://readthedocs.org/projects/wadi/badge/?version=latest&style=flat
                     :target: https://wadi.readthedocs.io
@@ -8,7 +8,7 @@ wadi
 .. .. image:: https://img.shields.io/codecov/c/gh/KWR-Water/wadi
 ..                     :target: https://codecov.io/gh/KWR-Water/wadi
 
-Wadi is a very generic importer for (almost) all (excel) formats in which water quality data of the (Dutch) water
+WaDI is a very generic importer for (almost) all (excel) formats in which water quality data of the (Dutch) water
 laboratory is shared
 
 
