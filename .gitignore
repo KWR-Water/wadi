@@ -135,7 +135,7 @@ test*.py
 # files that are created on the fly
 # docs/source/_build
 *.log
-*.json
+# *.json
 .google-cookie
 .pylint.d
 *.zip
