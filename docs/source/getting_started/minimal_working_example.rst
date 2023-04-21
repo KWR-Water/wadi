@@ -12,13 +12,15 @@ in the :doc:`user guide section <../user_guide/index>`.
 
     # Import the library
     import wadi as wd
-    from pathlib import Path
-    import os
-    print(Path.cwd())
-    os.chdir(Path().resolve().parent)
-    print(Path.cwd())
-    import glob
-    glob.glob('**/*.xlsx', recursive=True)
+
+Get the folder containing the data that is used within this documentation.
+
+.. ipython:: python
+    :okexcept:
+    :okwarning:
+
+    from wadi.documentation_helpers import get_data_dir
+    DATA_DIRECTORY = get_data_dir()
 
 
 .. ipython:: python

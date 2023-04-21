@@ -11,7 +11,7 @@ setup(
     packages=find_packages(exclude=['tests*']),
     license='MIT',
     description='Generic importer for water quality data of the (Dutch) water laboratory',
-    long_description=read('README.md'),
+    long_description=read('README.rst'),
     long_description_content_type="text/x-rst",
     classifiers=[
         'Development Status :: 4 - Beta',
