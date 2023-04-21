@@ -149,8 +149,9 @@ feature_map.pkl
 .vscode/
 
 # Others
-docs/wadi_putput
+docs/wadi_output
 create_default_feature_map_from_pickle.py
 feature_map.pkl
 .pytest_cache/
 .vscode/
+docs/tidied_data.xlsx
