@@ -122,9 +122,9 @@ class MapperDict(UserDict):
         """
         # The json file resides in the parent directory of the
         # current module's py file. The __file__ attribute returns
-        # the pathname of the current py file and .parents[1]
+        # the pathname of the current py file and .parent
         # provides its parent directory.
-        filepath = Path(__file__).parents[1]
+        filepath = Path(__file__).parent
         # Import the file into a DataFrame.
         dfj = pd.read_json(Path(filepath, "default_feature_map.json"))
         # Use the DataFrame's explode function to transform any keys
@@ -159,7 +159,7 @@ class MapperDict(UserDict):
             rv_dict = {**rv_dict, **df.set_index("feature")["unit"].to_dict()}
 
         return cls(rv_dict)
-    
+
     @classmethod
     def pubchem_cas_dict(
         cls,
