@@ -106,7 +106,7 @@ class InfoTable(UserDict):
                 col_name = key_0
                 duplicate_nr = re.search('\.\d+$', col_name)
                 if duplicate_nr:
-                    col_name = col_name.removesuffix(duplicate_nr.group()) # Requires Python 3.9 or later
+                    col_name = col_name[:-len(duplicate_nr.group())]
                 # Define the dictionary with the required data
                 dict_1 = {'name': col_name,
                           'unit': units[i], 
