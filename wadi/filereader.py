@@ -50,6 +50,7 @@ class FileReader(WadiBaseClass):
         c_dict=None,
         mask=None,
         lod_column=None,
+        extract_units_from_feature_name=False,
         pd_reader="read_excel",  # str, immutable
         **kwargs,
     ):
@@ -89,8 +90,8 @@ class FileReader(WadiBaseClass):
             be used in principle, the design of WaDI has not been tested
             for functions other than read_excel and read_csv. Default:
             'read_excel'.
-        **kwargs: dict, optionalt
-            Dictionary with kwargs for the 'pdt_retader' function. The
+        **kwargs: dict, optional
+            Dictionary with kwargs for the 'pd_reader' function. The
             kwargs can be a mix of WaDI specific keywords and valid
             keyword arguments for the 'pd_reader' function.
         """
@@ -111,6 +112,7 @@ class FileReader(WadiBaseClass):
 
         self._mask = mask
         self._lod_column = lod_column
+        self._extract_units_from_feature_name = extract_units_from_feature_name
 
         self._kwargs = copy.deepcopy(vars()["kwargs"])  # deepcopy just to be sure
 
@@ -174,6 +176,7 @@ class FileReader(WadiBaseClass):
             self._c_dict,
             units,
             datatypes,
+            self._extract_units_from_feature_name,
         )
 
         # Write the __str__ representation of the InfoTable to the
@@ -260,6 +263,8 @@ class FileReader(WadiBaseClass):
             for kwarg in pd_kwargs.copy():  # copy() is needed to avoid a RuntimeError
                 if kwarg == "units_row":
                     units_row = pd_kwargs[kwarg]
+                if kwarg == "infer_units_from_feature_name":
+                    infer_units_from_feature_name = pd_kwargs[kwarg]
                 # Check if a valid datatype was passed and convert to
                 # one of the standard formats contained in VALID_DATAYPES.
                 if kwarg == "datatype":

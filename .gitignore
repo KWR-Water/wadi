@@ -140,7 +140,7 @@ test*.py
 .pylint.d
 
 # Others
-docs/wadi_output
+docs/wadi_output/
 create_default_feature_map_from_pickle.py 
 feature_map.pkl 
 .pytest_cache/
