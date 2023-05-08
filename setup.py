@@ -7,7 +7,7 @@ def read(fname):
 
 setup(
     name='wadi',
-    version='0.1.1',
+    version='0.1.3',
     packages=find_packages(exclude=['tests*']),
     license='MIT',
     description='Generic importer for water quality data of the (Dutch) water laboratory',
