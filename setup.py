@@ -31,13 +31,16 @@ setup(
     'Help': 'https://github.com/KWR-Water/wadi/issues'
     },
     install_requires=[
-        'pandas>=0.23',
+        'pandas>=1,<2,
         'pint',
         'requests',
         'molmass',
         'openpyxl>=3.0.0',
-        'googletrans',
-        'fuzzywuzzy'
+        'googletrans==3.1.0a0',
+        'fuzzywuzzy',
+        'levenshtein>=0.20.9',
+        'python-Levenshtein>=0.20.9',
+        'requests'
         ],
     include_package_data=True,
     url='https://github.com/KWR-Water/wadi',
