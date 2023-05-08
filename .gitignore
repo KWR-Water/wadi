@@ -143,7 +143,6 @@ test*.py
 
 # Others
 docs/wadi_putput
-create_default_feature_map_from_pickle.py
 feature_map.pkl
 .pytest_cache/
 .vscode/
