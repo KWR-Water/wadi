@@ -84,6 +84,9 @@ class FileReader(WadiBaseClass):
             detection (LOD). If a valid column name is specified, the
             symbol is prefixed to the measurement value.
             Only used when the format is 'stacked'. Default: None
+        extract_units_from_feature_name : bool
+            Indicates if the feature name also contains the units. Default:
+            False
         pd_reader : str, optional
             Name of the Pandas function to read the file. Must be a valid
             function name. While all functions implemented in Pandas could
@@ -263,8 +266,6 @@ class FileReader(WadiBaseClass):
             for kwarg in pd_kwargs.copy():  # copy() is needed to avoid a RuntimeError
                 if kwarg == "units_row":
                     units_row = pd_kwargs[kwarg]
-                if kwarg == "infer_units_from_feature_name":
-                    infer_units_from_feature_name = pd_kwargs[kwarg]
                 # Check if a valid datatype was passed and convert to
                 # one of the standard formats contained in VALID_DATAYPES.
                 if kwarg == "datatype":
