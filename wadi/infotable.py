@@ -64,6 +64,8 @@ class InfoTable(UserDict):
             list is created by the '_read_file' function based on the datatype
             kwarg passed by the user to read_data. Datatypes must all 
             be in VALID_DATATYPES.
+        extract_units_from_feature_name : bool
+            Indicates if the feature name also contains the units.
         """
 
         # Use the c_dict to identify the names of the columns with
