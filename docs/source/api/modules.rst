@@ -1,7 +1,7 @@
-wadi
+WaDI
 ====
 
 .. toctree::
    :maxdepth: 4
 
-   wadi
+   WaDI

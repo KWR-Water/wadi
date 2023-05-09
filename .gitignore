@@ -135,13 +135,22 @@ test*.py
 # files that are created on the fly
 # docs/source/_build
 *.log
-*.json
+# *.json
 .google-cookie
 .pylint.d
+*.zip
+.vscode
 
 # Others
-docs/wadi_output/
-create_default_feature_map_from_pickle.py 
-feature_map.pkl 
+docs/wadi_putput
+feature_map.pkl
 .pytest_cache/
 .vscode/
+
+# Others
+docs/wadi_output
+create_default_feature_map_from_pickle.py
+feature_map.pkl
+.pytest_cache/
+.vscode/
+docs/tidied_data.xlsx
