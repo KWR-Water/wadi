@@ -2,6 +2,8 @@ from collections import UserDict
 import pandas as pd
 import re
 
+from wadi.utils import parse_name_and_units
+
 DICT_KEYS = ['name', 
              'unit', 
              'values',
@@ -36,6 +38,7 @@ class InfoTable(UserDict):
         c_dict,
         units, 
         datatypes,
+        extract_units_from_feature_name,
         ):
         """
         Initialization method. Creates a nested dict with information
@@ -61,6 +64,8 @@ class InfoTable(UserDict):
             list is created by the '_read_file' function based on the datatype
             kwarg passed by the user to read_data. Datatypes must all 
             be in VALID_DATATYPES.
+        extract_units_from_feature_name : bool
+            Indicates if the feature name also contains the units.
         """
 
         # Use the c_dict to identify the names of the columns with
@@ -90,9 +95,14 @@ class InfoTable(UserDict):
                 # Set the key in the infotable to the first element in the
                 # feature name column (all values in the column will be equal)
                 key_0 = df.loc[idx, col_f].iloc[0]
+                feature_name = key_0
+                units_str = df.loc[idx, col_u].iloc[0]
+                if extract_units_from_feature_name == True:
+                    feature_name, units_str = parse_name_and_units(feature_name)
+                    
                 # Define the dictionary with the required data
-                dict_1 = {'name': key_0,
-                          'unit': df.loc[idx, col_u].iloc[0], 
+                dict_1 = {'name': feature_name,
+                          'unit': units_str, 
                           'sampleids': df.loc[idx, col_s],
                           'values': df.loc[idx, col_v],
                           'datatype': 'feature'}
@@ -103,13 +113,16 @@ class InfoTable(UserDict):
             for i, key_0 in enumerate(df.columns):
                 # Pandas adds a dot followed by a number for duplicate columns
                 # so to get the real feature name, it must be removed
-                col_name = key_0
-                duplicate_nr = re.search('\.\d+$', col_name)
+                feature_name = key_0
+                duplicate_nr = re.search('\.\d+$', feature_name)
                 if duplicate_nr:
-                    col_name = col_name.removesuffix(duplicate_nr.group()) # Requires Python 3.9 or later
+                    feature_name = feature_name[:-len(duplicate_nr.group())]
+                units_str = units[i]
+                if extract_units_from_feature_name == True:
+                    feature_name, units_str = parse_name_and_units(feature_name)
                 # Define the dictionary with the required data
-                dict_1 = {'name': col_name,
-                          'unit': units[i], 
+                dict_1 = {'name': feature_name,
+                          'unit': units_str, 
                           'values': df[key_0],
                           'datatype': datatypes[i]}
                 # Add dict_1 to the info_table

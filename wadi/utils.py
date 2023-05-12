@@ -4,7 +4,8 @@ import re
 
 import numpy as np
 
-DEFAULT_FUZZY_MINSCORES = {1: 100, 3: 100, 4: 90, 5: 85, 6: 80, 8: 75}
+# DEFAULT_FUZZY_MINSCORES = {1: 100, 3: 100, 4: 90, 5: 85, 6: 80, 8: 75}
+DEFAULT_FUZZY_MINSCORES = {1: 100, 3: 100, 4: 90, 5: 85, 6: 80}
 
 
 def check_arg(arg, valid_args):
@@ -105,6 +106,54 @@ def check_if_nested_list(n_list, min_elements=2):
     else:
         raise TypeError("Expected a nested list")
 
+def parse_name_and_units(s):
+    """
+    This function attempts to extract the feature name and units from 
+    a string. It tries to split the string at the first space character.
+    The first item before the space is the feature name (verbatim). If
+    the part after the space contains any parentheses, brackets or accolades
+    these are stripped off and the remaining part is considered to contain
+    the units. For example, it will correctly recognize the following 
+    formats: 'Ca', 'Mg mg/l', 'Na (mg/l)', 'NO3 [mg N/l]', 'SO4 {mg/l S}'.
+    The units for 'Ca tot mg/l' will be incorrectly inferred because the
+    string contains two spaces.
+
+    Parameters
+    ----------
+    s : str
+        A string from which the name and units must be extracted.
+
+    Returns
+    -------
+    name : str
+        The feature name extracted from 's'. For the example strings above, 
+        the resulting names will be 'Ca', 'Mg', 'Na', 'NO3', 'SO4' and 'Ca'.
+    units: str
+        The units extracted from 's'. For the example strings above, the 
+        corresponding units will be '', 'mg/l', 'mg/l', 'mg N/l', 
+        'mg/l S' and 'tot mg/l'.
+    """
+
+    # Split string at the first space.
+    split_str = s.split(sep=None, maxsplit=1)
+    # If the string contains no space separator the
+    # string is considered to be the feature name. An
+    # empty string is returned for the units.
+    if len(split_str) == 1:
+        return split_str[0], ""
+    # If the string was sucessfully split, the
+    # first list element is considered to be the 
+    # feature name, the second the units.
+    elif len(split_str) == 2:
+        # Use a regular expression to strip off any
+        # parentheses, brackets or accolades from the
+        # string with the units.
+        return split_str[0], re.sub("[\(\)\[\]\{\}]", "", split_str[1])
+    
+    # For empty strings the list returned by the split
+    # function will be empty. Return empty strings for
+    # both name and units in that case.
+    return "", ""
 
 class StringList(UserList):
     """

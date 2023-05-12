@@ -142,7 +142,10 @@ class Harmonizer(WadiBaseClass):
         # Check if there are three substrings
         if len(substrings) == 3:
             # Convert the third substring to a float and apply the uc_factor.
-            rv = float(substrings[2].replace(self._decimal_str, ".")) * conversion_factor
+            try:
+                rv = float(substrings[2].replace(self._decimal_str, ".")) * conversion_factor
+            except ValueError:
+                rv = substrings[2]
             # Prefix the smaller-than symbol without any leading and
             # only a single trailing space and return as a string.
             return f"{substrings[1].strip()} {rv}"

@@ -124,9 +124,9 @@ class MapperDict(UserDict):
         # current module's py file. The __file__ attribute returns
         # the pathname of the current py file and .parent
         # provides its parent directory.
-        filepath = Path(__file__).parent
+        filepath = Path(__file__).resolve().parent
         # Import the file into a DataFrame.
-        dfj = pd.read_json(Path(filepath, "default_feature_map.json"))
+        dfj = pd.read_json(Path(filepath, "mapping_data", "default_feature_map.json"))
         # Use the DataFrame's explode function to transform any keys
         # that are a list (or list-like) into a row. The corresponding
         # value is duplicated for each list element that becomes a row.
@@ -153,9 +153,9 @@ class MapperDict(UserDict):
         """
 
         rv_dict = {}
-        filepath = Path(Path(__file__).parents[1], "hgc_constants")
+        filepath = Path(__file__).resolve().parent
         for fname in ["atoms.csv", "ions.csv", "other_than_concentrations.csv"]:
-            df = pd.read_csv(Path(filepath, fname), comment='#')
+            df = pd.read_csv(Path(filepath, "mapping_data", fname), comment='#')
             rv_dict = {**rv_dict, **df.set_index("feature")["unit"].to_dict()}
 
         return cls(rv_dict)

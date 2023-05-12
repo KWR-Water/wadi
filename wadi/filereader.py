@@ -50,6 +50,7 @@ class FileReader(WadiBaseClass):
         c_dict=None,
         mask=None,
         lod_column=None,
+        extract_units_from_feature_name=False,
         pd_reader="read_excel",  # str, immutable
         **kwargs,
     ):
@@ -83,14 +84,17 @@ class FileReader(WadiBaseClass):
             detection (LOD). If a valid column name is specified, the
             symbol is prefixed to the measurement value.
             Only used when the format is 'stacked'. Default: None
+        extract_units_from_feature_name : bool
+            Indicates if the feature name also contains the units. Default:
+            False
         pd_reader : str, optional
             Name of the Pandas function to read the file. Must be a valid
             function name. While all functions implemented in Pandas could
             be used in principle, the design of WaDI has not been tested
             for functions other than read_excel and read_csv. Default:
             'read_excel'.
-        **kwargs: dict, optionalt
-            Dictionary with kwargs for the 'pdt_retader' function. The
+        **kwargs: dict, optional
+            Dictionary with kwargs for the 'pd_reader' function. The
             kwargs can be a mix of WaDI specific keywords and valid
             keyword arguments for the 'pd_reader' function.
         """
@@ -111,6 +115,7 @@ class FileReader(WadiBaseClass):
 
         self._mask = mask
         self._lod_column = lod_column
+        self._extract_units_from_feature_name = extract_units_from_feature_name
 
         self._kwargs = copy.deepcopy(vars()["kwargs"])  # deepcopy just to be sure
 
@@ -174,6 +179,7 @@ class FileReader(WadiBaseClass):
             self._c_dict,
             units,
             datatypes,
+            self._extract_units_from_feature_name,
         )
 
         # Write the __str__ representation of the InfoTable to the
