@@ -7,7 +7,7 @@ def read(fname):
 
 setup(
     name='wadi',
-    version='0.1.3',
+    version='0.1.4',
     packages=find_packages(exclude=['tests*']),
     license='MIT',
     description='Generic importer for water quality data of the (Dutch) water laboratory',
@@ -18,12 +18,13 @@ setup(
         'Intended Audience :: Science/Research',
         'Intended Audience :: Other Audience',
         'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Topic :: Scientific/Engineering :: Hydrology',
     ],
-    python_requires='>=3.9',
+    python_requires='>=3.8',
     project_urls={
     'Source': 'https://github.com/KWR-Water/wadi',
     'Documentation': 'http://wadi.readthedocs.io/en/latest/',
