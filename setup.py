@@ -32,7 +32,7 @@ setup(
     'Help': 'https://github.com/KWR-Water/wadi/issues'
     },
     install_requires=[
-        'pandas>=1,<2,
+        'pandas>=1,<2',
         'pint',
         'requests',
         'molmass',
