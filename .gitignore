@@ -154,3 +154,9 @@ feature_map.pkl
 .pytest_cache/
 .vscode/
 docs/tidied_data.xlsx
+tidied_data.xlsx
+wadi_output/mapping_results_hgc_compatible.xlsx
+wadi_output/mapping_results_mapping_example.xlsx
+wadi_output/mapping_results_messy_data.xlsx
+wadi_output/mapping_results_minimal_usage.xlsx
+wadi_output/mapping_results_WaDI_example.xlsx
