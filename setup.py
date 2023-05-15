@@ -1,3 +1,4 @@
+import glob
 import os
 from setuptools import setup, find_packages
 
@@ -9,6 +10,7 @@ setup(
     name='wadi',
     version='0.1.3',
     packages=find_packages(exclude=['tests*']),
+    data_files=glob.glob('mapping_data/**'),
     license='MIT',
     description='Generic importer for water quality data of the (Dutch) water laboratory',
     long_description=read('README.md'),
