@@ -1,0 +1,2 @@
+include wadi/mapping_data/*.csv
+include wadi/mapping_data/*.json
