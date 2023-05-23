@@ -8,7 +8,7 @@ def read(fname):
 
 setup(
     name='wadi',
-    version='0.1.5',
+    version='{{VERSION_PLACEHOLDER}}',
     packages=find_packages(exclude=['tests*']),
     data_files=glob.glob('mapping_data/**'),
     license='MIT',
