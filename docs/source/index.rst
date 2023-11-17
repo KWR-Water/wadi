@@ -31,7 +31,7 @@ WaDI provides support for:
     Getting started <getting_started/index.rst>
     User guide <user_guide/index.rst>
     Developer guide <developer_guide/index.rst>
-    API reference <api/modules.rst>
+    API reference <api/wadi.rst>
 
 .. Indices and tables
 .. ==================
