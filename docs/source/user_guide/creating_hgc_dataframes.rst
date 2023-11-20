@@ -133,6 +133,7 @@ by setting the :code:`include_units` argument of the
 :code:`get_converted_dataframe` function to :code:`False`.
 
 .. ipython:: python
+    :okexcept:
 
     df_hgc = wdo.get_converted_dataframe(include_units=False)
 
