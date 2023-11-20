@@ -116,6 +116,7 @@ chloride, but ug/l for bromide).
 The data can now be converted and displayed on the screen.
 
 .. ipython:: python
+    :okexcept:
 
     df = wdo.get_converted_dataframe()
 
