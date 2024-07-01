@@ -275,13 +275,13 @@ def query_pubchem_cas(s, namespace="name", allow_multiple=False):
             if allow_multiple:
                 return rv
             else:
-                return rv[0]
+                return rv[0] if len(rv) > 0 else None
     else:
         # If an error occured return None
         return None
 
 
-def get_pubchem_molecular_weight(s, namespace="name"):
+def get_pubchem_molecular_weight(s, domain="compound", namespace="name"):
     """
     This method uses the PubChem REST API service to look up the molecular
     weight of a PubChem compound based on its name or other allowed namespace.
@@ -291,6 +291,9 @@ def get_pubchem_molecular_weight(s, namespace="name"):
     ----------
     s : str
         The string to look up
+    domain : str, optional
+        The domain to search in (for example, 'substance' or
+        'compound'). Default: 'compound'
     namespace : str, optional
         The namespace to seach for (for example, 'name', 'cid',
         'smiles', ...). Default: 'name'
@@ -302,7 +305,7 @@ def get_pubchem_molecular_weight(s, namespace="name"):
         if an error occurred.
     """
     # Insert 's' and 'namespace' into the URL.
-    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/{namespace}/{s}/property/MolecularWeight/json"
+    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/{domain}/{namespace}/{s}/property/MolecularWeight/json"
     # Get the json dict, return None if an error occurred.
     js = get_pubchem_json(url)
     if js is None:

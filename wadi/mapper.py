@@ -76,6 +76,28 @@ class MapperDict(UserDict):
     method to create a dictionary that translates between languages
     (currently not working due to issues with Google Translate).
     """
+    def __init__(self, dict=None, /, **kwargs):
+        """
+        This method overrides the default constructor
+        to add a name property.
+        Parameters
+        ----------
+        dict : dictionary
+            The data for the dictionary.
+        name : str, optional
+            The dictionary name.        
+        """
+
+        # Set default name
+        self.name = "Mapping dictionary"
+        # Override default name if 'name' kwarg
+        # was passed
+        if "name" in kwargs:
+            self.name = kwargs["name"]
+            kwargs.pop("name")
+
+        # Call UserDict's constructor
+        super().__init__(dict, **kwargs)
 
     @classmethod
     def from_file(cls, file_path):
@@ -136,7 +158,7 @@ class MapperDict(UserDict):
         # Values are lists, gives problems when they become aliases so
         # keep only first list element if there are multiple.
         rv_dict = {k: str(v[0]) for k, v in rv_dict.items()}
-        return cls(rv_dict)
+        return cls(rv_dict, name=f"{keys} to {values}")
 
     @classmethod
     def _create_hgc_units_dict(cls):
@@ -691,7 +713,10 @@ class Mapper(WadiBaseClass):
         # If the user didn't specify a mapping dictionary, create one
         # using the input strings as keys (the values will all be None).
         if self._m_dict is None:
-            self._m_dict = dict.fromkeys(strings)
+            self._m_dict = [MapperDict(dict.fromkeys(strings))]
+
+        if not isinstance(self._m_dict, list):
+            self._m_dict = [self._m_dict]
 
         # Create a DataFrame that will contain a summary of the results.
         df = pd.DataFrame({"header": columns, "name": strings})
@@ -705,7 +730,14 @@ class Mapper(WadiBaseClass):
         # Store the modified strings in df
         df["modified"] = strings
 
-        # Check if 'ascii' or 'fuzzy' were passed
+        # Add columns to df that will be populated after calling the
+        # match method(s).
+        df["searched"] = np.nan  # Stores the item that was searched,
+        df["found"] = np.nan  # the item that was found,
+        df["alias"] = np.nan  # the alias of the found item,
+        df["method"] = np.nan  # the method by which the match was found.
+        df["m_dict"] = np.nan  # and the mapping dict by which the match was found.
+        
         if any([m in ["ascii", "fuzzy"] for m in self.match_method]):
             # Create a new StringList object and call the tidy_strings,
             # (converts all characters to lowercase and removes all
@@ -715,75 +747,76 @@ class Mapper(WadiBaseClass):
             strings_t.tidy_strings()
             # Add the tidied strings to df
             df["tidied"] = strings_t
-
-            # Define a new mapping dictionary for which the keys are
-            # tidied versions of the keys of the mapping dictionary
-            # specified by the user. Repeats the same methods that
-            # were used to create strings_t, but now for the keys of
-            # m_dict.
-            keys_t = StringList(self._m_dict.keys())
-            keys_t.replace_strings(self._replace_strings)
-            keys_t.replace_strings({k: "" for k in self._remove_strings})
-            keys_t.strip()
-            keys_t.tidy_strings()
-            m_dict_t = {
-                k1: self._m_dict.get(k0) for k0, k1 in zip(self._m_dict, keys_t)
-            }
-
-        # Add columns to df that will be populated after calling the
-        # match method(s).
-        df["searched"] = np.nan  # Stores the item that was searched,
-        df["found"] = np.nan  # the item that was found,
-        df["alias"] = np.nan  # the alias of the found item,
-        df["method"] = np.nan  # and the method by which the match was found.
-
+        
         # Iterate over the specified match methods.
         for m in self.match_method:
-            # Select only the rows for which no match was found yet
-            idx = df["found"].isnull()
-            if all(idx == False):
-                break
-            dfsub = df.loc[idx, df.columns].copy()
-            # The terms to be matched depends on the method
-            if m in ["exact", "regex", "pubchem"]:
-                dfsub["searched"] = dfsub["modified"]
-            else:  # m is ascii or fuzzy
-                dfsub["searched"] = dfsub["tidied"]
-            # Call the appropriate match method (a bit verbose for readability)
-            if m == "exact":
-                res = self._match_exact(dfsub["searched"], self._m_dict)
-            elif m == "ascii":
-                res = self._match_exact(dfsub["searched"], m_dict_t)
-            elif m == "regex":
-                res = self._match_regex(dfsub["searched"])
-            elif m == "fuzzy":
-                res = self._match_fuzzy(dfsub["searched"], m_dict_t)
-            elif m == "pubchem":
-                res = self._match_pubchem(dfsub["searched"])
-            else:
-                raise NotImplementedError
+            for m_dict in self._m_dict:
+                # Check if 'ascii' or 'fuzzy' were passed
+                # if any([m in ["ascii", "fuzzy"] for m in self.match_method]):
+                if m in ["ascii", "fuzzy"]:
+                    # Define a new mapping dictionary for which the keys are
+                    # tidied versions of the keys of the mapping dictionary
+                    # specified by the user. Repeats the same methods that
+                    # were used to create strings_t, but now for the keys of
+                    # m_dict.
+                    # keys_t = StringList(self._m_dict.keys())
+                    keys_t = StringList(m_dict.keys())
+                    keys_t.replace_strings(self._replace_strings)
+                    keys_t.replace_strings({k: "" for k in self._remove_strings})
+                    keys_t.strip()
+                    keys_t.tidy_strings()
+                    m_dict_t = {
+                        # k1: self._m_dict.get(k0) for k0, k1 in zip(self._m_dict, keys_t)
+                        k1: m_dict.get(k0) for k0, k1 in zip(m_dict, keys_t)
+                    }
 
-            # Store the matched strings in the 'found' column and
-            # their aliases in the 'alias' columns. Note that the
-            # regex match method does not set the unit aliases.
-            dfsub[["found", "alias"]] = res
-            # Only place method in the 'method' column if a match
-            # was found.
-            idx = ~dfsub["found"].isnull()
-            dfsub.loc[idx, "method"] = m
-            # Update the main df with the values in dfsub.
-            df.update(dfsub)
+                # Select only the rows for which no match was found yet
+                idx = df["found"].isnull()
+                if all(idx == False):
+                    break
+                dfsub = df.loc[idx, df.columns].copy()
+                # The terms to be matched depends on the method
+                if m in ["exact", "regex", "pubchem"]:
+                    dfsub["searched"] = dfsub["modified"]
+                else:  # m is ascii or fuzzy
+                    dfsub["searched"] = dfsub["tidied"]
+                # Call the appropriate match method (a bit verbose for readability)
+                if m == "exact":
+                    # res = self._match_exact(dfsub["searched"], self._m_dict)
+                    res = self._match_exact(dfsub["searched"], m_dict)
+                elif m == "ascii":
+                    res = self._match_exact(dfsub["searched"], m_dict_t)
+                elif m == "regex":
+                    res = self._match_regex(dfsub["searched"])
+                elif m == "fuzzy":
+                    res = self._match_fuzzy(dfsub["searched"], m_dict_t)
+                elif m == "pubchem":
+                    res = self._match_pubchem(dfsub["searched"])
+                else:
+                    raise NotImplementedError
 
-            # Write an overview of the match method's results to the
-            # log file.
-            self._log(f"* Match method '{m}' yielded the following results:")
-            for name, searched, found, alias in zip(
-                dfsub["name"], dfsub["searched"], dfsub["found"], dfsub["alias"]
-            ):
-                if found is not None:
-                    self._log(
-                        f" - {name}: Searched {searched}, found {found}, alias {alias}."
-                    )
+                # Store the matched strings in the 'found' column and
+                # their aliases in the 'alias' columns. Note that the
+                # regex match method does not set the unit aliases.
+                dfsub[["found", "alias"]] = res
+                # Only place method in the 'method' column if a match
+                # was found.
+                idx = ~dfsub["found"].isnull()
+                dfsub.loc[idx, "method"] = m
+                dfsub.loc[idx, "m_dict"] = m_dict.name
+                # Update the main df with the values in dfsub.
+                df.update(dfsub)
+
+                # Write an overview of the match method's results to the
+                # log file.
+                self._log(f"* Match method '{m}' yielded the following results:")
+                for name, searched, found, alias in zip(
+                    dfsub["name"], dfsub["searched"], dfsub["found"], dfsub["alias"]
+                ):
+                    if found is not None:
+                        self._log(
+                            f" - {name}: Searched {searched}, found {found}, alias {alias}."
+                        )
 
         idx = df["alias"].isnull()
         df.loc[idx, "alias"] = df.loc[idx, "modified"]
